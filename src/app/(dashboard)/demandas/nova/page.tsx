@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { getUniqueColumnKeys } from '@/lib/utils';
 import {
   DemandaStatus,
   DemandaPrioridade,
@@ -140,7 +141,7 @@ export default function NovaDemandaPage() {
     );
   });
 
-  const getStandardField = (column: string) => {
+  const getStandardField = (column: string): keyof typeof formData | null => {
     const normalized = normalizeHeader(column);
     if (
       normalized.includes('demanda') ||
@@ -161,27 +162,34 @@ export default function NovaDemandaPage() {
     return null;
   };
 
-  const standardFields = new Set([
-    'titulo',
-    'data_criacao',
-    'responsavel',
-    'gri',
-    'atividade',
-    'rdm_link',
-    'status',
-    'prioridade',
-    'descricao',
-  ]);
-  const additionalColumns = importedColumns.filter(
-    (column) => !standardFields.has(getStandardField(column) || '')
-  );
+  const importedColumnFields = (() => {
+    const usedStandardFields = new Set<string>();
+    const columnKeys = getUniqueColumnKeys(importedColumns);
 
-  const getImportedValue = (column: string) => {
-    const field = getStandardField(column);
+    return importedColumns.map((column, index) => {
+      const standardField = getStandardField(column);
+      const field =
+        standardField && !usedStandardFields.has(standardField)
+          ? standardField
+          : null;
+
+      if (field) {
+        usedStandardFields.add(field);
+      }
+
+      return { column, key: columnKeys[index], field };
+    });
+  })();
+  const additionalColumns = importedColumnFields.filter(({ field }) => !field);
+
+  const getImportedValue = ({
+    key,
+    field,
+  }: (typeof importedColumnFields)[number]) => {
     if (field) {
-      return formData[field as keyof typeof formData] || '';
+      return formData[field] || '';
     }
-    return customFields[column] || '';
+    return customFields[key] || '';
   };
 
   const validate = () => {
@@ -218,8 +226,8 @@ export default function NovaDemandaPage() {
       }
 
       const dados = Object.fromEntries(
-        importedColumns
-          .map((column) => [column, getImportedValue(column)])
+        importedColumnFields
+          .map((column) => [column.key, getImportedValue(column)])
           .filter(([, value]) => value !== '')
       );
 
@@ -427,16 +435,16 @@ export default function NovaDemandaPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {additionalColumns.map((column, index) => (
+                  {additionalColumns.map(({ column, key }, index) => (
                     <Input
-                      key={`${column}-${index}`}
+                      key={`${key}-${index}`}
                       label={column}
                       id={`custom-field-${index}`}
-                      value={customFields[column] || ''}
+                      value={customFields[key] || ''}
                       onChange={(e) =>
                         setCustomFields((current) => ({
                           ...current,
-                          [column]: e.target.value,
+                          [key]: e.target.value,
                         }))
                       }
                     />

@@ -35,7 +35,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { cn } from '@/lib/utils';
+import { cn, getUniqueColumnKeys } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -151,6 +151,10 @@ export default function DemandaPorTipoPage() {
     // Fallback padrão
     return ['Data', 'Demanda', 'Responsável', 'Status'];
   }, [tipo, colunasCustomizadas, demandas]);
+  const activeColumnKeys = useMemo(
+    () => getUniqueColumnKeys(activeColumns),
+    [activeColumns]
+  );
 
   // Filtragem dos dados
   const filteredDemandas = useMemo(() => {
@@ -264,27 +268,36 @@ export default function DemandaPorTipoPage() {
     }
   }
 
-  function updateCustomField(column: string, value: string) {
+  function updateCustomField(column: string, value: string, index: number) {
     if (!editingDemanda) return;
 
+    const columnKey = activeColumnKeys[index] || column;
     const normalizedColumn = column.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const titleColumn =
-      activeColumns.find((col) => {
-        const normalized = col.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return ['demanda', 'titulo', 'tarefa', 'nome', 'assunto'].some((key) =>
-          normalized.includes(key)
-        );
-      }) || activeColumns[0];
+    const titleColumnIndex = activeColumns.findIndex((col) => {
+      const normalized = col.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return ['demanda', 'titulo', 'tarefa', 'nome', 'assunto'].some((key) =>
+        normalized.includes(key)
+      );
+    });
+    const statusColumnIndex = activeColumns.findIndex((col) => {
+      const normalized = col.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return normalized.includes('status') || normalized.includes('situacao') || normalized.includes('estado');
+    });
     const nextDemanda = {
       ...editingDemanda,
-      dados: { ...editingDemanda.dados, [column]: value },
+      dados: { ...editingDemanda.dados, [columnKey]: value },
     };
 
-    if (column === titleColumn) {
+    if (index === (titleColumnIndex === -1 ? 0 : titleColumnIndex)) {
       nextDemanda.titulo = value;
     }
 
-    if (normalizedColumn.includes('status') || normalizedColumn.includes('situacao') || normalizedColumn.includes('estado')) {
+    if (
+      index === statusColumnIndex &&
+      (normalizedColumn.includes('status') ||
+        normalizedColumn.includes('situacao') ||
+        normalizedColumn.includes('estado'))
+    ) {
       const normalizedValue = value.toLowerCase();
       if (normalizedValue.includes('andamento') || normalizedValue.includes('progresso')) {
         nextDemanda.status = 'Em Andamento';
@@ -310,9 +323,9 @@ export default function DemandaPorTipoPage() {
   };
 
   // Helper para renderizar célula dinâmica
-  const renderCellContent = (demanda: Demanda, col: string) => {
+  const renderCellContent = (demanda: Demanda, col: string, index: number) => {
     if (tipo !== 'corretivas') {
-      const value = demanda.dados?.[col];
+      const value = demanda.dados?.[activeColumnKeys[index]];
       return value !== undefined && value !== null && value !== ''
         ? String(value)
         : '-';
@@ -497,8 +510,8 @@ export default function DemandaPorTipoPage() {
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-700">
                   <tr>
-                    {activeColumns.map((col) => (
-                      <th key={col} scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                    {activeColumns.map((col, index) => (
+                      <th key={`${col}-${index}`} scope="col" className="px-4 py-3.5 whitespace-nowrap">
                         {col}
                       </th>
                     ))}
@@ -519,9 +532,9 @@ export default function DemandaPorTipoPage() {
                       key={demanda.id}
                       className="hover:bg-gray-50/80 transition-colors"
                     >
-                      {activeColumns.map((col) => (
-                        <td key={col} className="px-4 py-3.5 whitespace-nowrap text-xs">
-                          {renderCellContent(demanda, col)}
+                      {activeColumns.map((col, index) => (
+                        <td key={`${col}-${index}`} className="px-4 py-3.5 whitespace-nowrap text-xs">
+                          {renderCellContent(demanda, col, index)}
                         </td>
                       ))}
 
@@ -912,8 +925,10 @@ export default function DemandaPorTipoPage() {
                       key={`${column}-${index}`}
                       label={column}
                       id={`edit-custom-${index}`}
-                      value={String(editingDemanda.dados?.[column] ?? '')}
-                      onChange={(e) => updateCustomField(column, e.target.value)}
+                      value={String(editingDemanda.dados?.[activeColumnKeys[index]] ?? '')}
+                      onChange={(e) =>
+                        updateCustomField(column, e.target.value, index)
+                      }
                     />
                   ))}
                 </div>

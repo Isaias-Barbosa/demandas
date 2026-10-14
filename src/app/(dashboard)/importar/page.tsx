@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { getUniqueColumnKeys } from '@/lib/utils';
 import { DemandaStatus, DemandaPrioridade } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -340,14 +341,15 @@ export default function ImportarExcelPage() {
       let successCount = 0;
       let errorCount = 0;
       const payload: any[] = [];
+      const columnKeys = getUniqueColumnKeys(headers);
 
       rawRows.forEach((row, rowIdx) => {
         // Monta o objeto dinâmico com todas as colunas da planilha
         const rowJson: Record<string, any> = {};
-        headers.forEach((colName, cIdx) => {
+        headers.forEach((_, cIdx) => {
           const val = row[cIdx];
           if (val !== undefined && val !== null && val !== '') {
-            rowJson[colName] = String(val).trim();
+            rowJson[columnKeys[cIdx]] = String(val).trim();
           }
         });
 
