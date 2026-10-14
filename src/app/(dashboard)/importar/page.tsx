@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useRef, DragEvent } from 'react';
+import { useState, useRef, useEffect, DragEvent } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
   UploadCloud,
   FileSpreadsheet,
   CheckCircle,
-  AlertCircle,
   ArrowRight,
   RefreshCw,
   HelpCircle,
   X,
+  Layers,
+  Settings2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
@@ -19,98 +21,24 @@ import { DemandaStatus, DemandaPrioridade } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
-const FIELD_OPTIONS = [
-  { value: '', label: 'Ignorar coluna' },
-  { value: 'data_criacao', label: 'Data' },
-  { value: 'titulo', label: 'Demanda (Obrigatório)' },
-  { value: 'gri', label: 'GRI' },
-  { value: 'atividade', label: 'Atividade' },
-  { value: 'responsavel', label: 'Responsável' },
-  { value: 'status', label: 'Status' },
-  { value: 'rdm_link', label: 'RDM Link' },
-  { value: 'descricao', label: 'Descrição' },
-  { value: 'prioridade', label: 'Prioridade' },
-  { value: 'data_conclusao', label: 'Data de Conclusão' },
-  { value: 'observacoes', label: 'Observações' },
-];
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-');
+}
 
 function normalizeHeader(header: string): string {
-  return header
+  return String(header || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '');
-}
-
-function autoDetectField(header: string): string {
-  const norm = normalizeHeader(header);
-
-  if (norm === 'gri' || norm.includes('gri')) {
-    return 'gri';
-  }
-  if (norm.includes('atividade') || norm.includes('activity') || norm.includes('acao')) {
-    return 'atividade';
-  }
-  if (norm.includes('rdm') || norm.includes('link')) {
-    return 'rdm_link';
-  }
-  if (norm.includes('demanda') || norm.includes('titulo') || norm.includes('title') || norm.includes('tarefa') || norm.includes('nome') || norm.includes('assunto')) {
-    return 'titulo';
-  }
-  if (
-    norm.includes('datacriacao') ||
-    norm.includes('criadoem') ||
-    norm.includes('criacao') ||
-    norm.includes('dataabertura') ||
-    norm.includes('createdat') ||
-    (norm.startsWith('data') && !norm.includes('conclu') && !norm.includes('final'))
-  ) {
-    return 'data_criacao';
-  }
-  if (norm.includes('responsavel') || norm.includes('assignee') || norm.includes('dono') || norm.includes('atribuido')) {
-    return 'responsavel';
-  }
-  if (norm.includes('status') || norm.includes('situacao') || norm.includes('estado')) {
-    return 'status';
-  }
-  if (norm.includes('prioridade') || norm.includes('priority') || norm.includes('urgencia')) {
-    return 'prioridade';
-  }
-  if (norm.includes('desc') || norm.includes('detalhe')) {
-    return 'descricao';
-  }
-  if (
-    norm.includes('dataconclusao') ||
-    norm.includes('concluidoem') ||
-    norm.includes('conclusao') ||
-    norm.includes('dataentrega') ||
-    norm.includes('finalizacao')
-  ) {
-    return 'data_conclusao';
-  }
-  if (norm.includes('observacao') || norm.includes('obs') || norm.includes('nota') || norm.includes('comentario')) {
-    return 'observacoes';
-  }
-
-  return '';
-}
-
-function normalizeStatus(val: any): DemandaStatus {
-  if (!val) return 'Pendente';
-  const str = String(val).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (str.includes('andamento') || str.includes('progresso')) return 'Em Andamento';
-  if (str.includes('conclu') || str.includes('feito') || str.includes('finaliz')) return 'Concluída';
-  if (str.includes('cancel')) return 'Cancelada';
-  return 'Pendente';
-}
-
-function normalizePrioridade(val: any): DemandaPrioridade {
-  if (!val) return 'Média';
-  const str = String(val).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (str.includes('urgente') || str.includes('critica')) return 'Urgente';
-  if (str.includes('alta')) return 'Alta';
-  if (str.includes('baixa')) return 'Baixa';
-  return 'Média';
 }
 
 function parseExcelDate(val: any): string | null {
@@ -139,14 +67,28 @@ function parseExcelDate(val: any): string | null {
 }
 
 export default function ImportarExcelPage() {
+  const searchParams = useSearchParams();
+  const initialAbaParam = searchParams.get('aba');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Dados do Excel
+  // Workbook completo guardado na memória
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+
+  // Configuração da linha de cabeçalho (1 ou 2)
+  const [headerRowIndex, setHeaderRowIndex] = useState<number>(0); // 0 = Linha 1, 1 = Linha 2
+
+  // Dados extraídos da aba atual
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
-  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+
+  // Nome e slug da categoria/página destino
+  const [targetName, setTargetName] = useState<string>('');
+  const [targetSlug, setTargetSlug] = useState<string>('');
 
   // Estado de Importação
   const [importing, setImporting] = useState(false);
@@ -155,7 +97,119 @@ export default function ImportarExcelPage() {
   const [importResult, setImportResult] = useState<{
     successCount: number;
     errorCount: number;
+    targetSlug: string;
+    targetName: string;
   } | null>(null);
+
+  // Quando o arquivo é selecionado
+  const processFile = (file: File) => {
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      toast.error('Formato de arquivo inválido. Por favor envie um arquivo .xlsx ou .xls.');
+      return;
+    }
+
+    setFileName(file.name);
+    setImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const wb = XLSX.read(data, { type: 'binary', cellDates: true });
+        setWorkbook(wb);
+        setSheetNames(wb.SheetNames);
+
+        // Escolhe a primeira aba ou a aba correspondente ao parâmetro na URL
+        let defaultSheet = wb.SheetNames[0];
+        if (initialAbaParam) {
+          const matched = wb.SheetNames.find(
+            (s) => slugify(s) === initialAbaParam.toLowerCase() || s.toLowerCase() === initialAbaParam.toLowerCase()
+          );
+          if (matched) defaultSheet = matched;
+        }
+
+        setSelectedSheet(defaultSheet);
+        parseSheet(wb, defaultSheet, undefined);
+        toast.success(`Planilha carregada! ${wb.SheetNames.length} aba(s) encontrada(s).`);
+      } catch (err: any) {
+        toast.error('Erro ao ler a planilha: ' + (err.message || 'Arquivo corrompido'));
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // Processa a aba e detecta cabeçalho
+  const parseSheet = (wb: XLSX.WorkBook, sheetName: string, forcedHeaderRow?: number) => {
+    const worksheet = wb.Sheets[sheetName];
+    if (!worksheet) return;
+
+    const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: '',
+    });
+
+    if (matrix.length === 0) {
+      toast.error(`A aba "${sheetName}" está vazia.`);
+      setHeaders([]);
+      setRawRows([]);
+      return;
+    }
+
+    // Auto-detectar linha de cabeçalho se não forçada
+    let detectedHeaderRow = forcedHeaderRow;
+    if (detectedHeaderRow === undefined) {
+      const row0Filled = (matrix[0] || []).filter((c) => String(c).trim() !== '').length;
+      const row1Filled = (matrix[1] || []).filter((c) => String(c).trim() !== '').length;
+
+      // Se a linha 2 tiver significativamente mais colunas com nomes (caso comum de Evolutivas), usa linha 2
+      if (row1Filled > row0Filled && row0Filled <= 3 && matrix.length > 2) {
+        detectedHeaderRow = 1; // Linha 2 do Excel (índice 1)
+      } else {
+        detectedHeaderRow = 0; // Linha 1 do Excel (índice 0)
+      }
+    }
+
+    setHeaderRowIndex(detectedHeaderRow);
+
+    const detectedHeaders = (matrix[detectedHeaderRow] || [])
+      .map((h: any, idx: number) => {
+        const val = String(h || '').trim();
+        return val || `Coluna ${idx + 1}`;
+      })
+      .filter((h: string, idx: number, arr: string[]) => {
+        // Ignora colunas vazias no final
+        return arr.slice(idx).some((c) => !c.startsWith('Coluna '));
+      });
+
+    const dataRows = matrix.slice(detectedHeaderRow + 1).filter((row) =>
+      row.some((cell: any) => cell !== '' && cell !== null && cell !== undefined)
+    );
+
+    setHeaders(detectedHeaders);
+    setRawRows(dataRows);
+
+    // Ajusta o destino com base no nome da aba
+    const cleanName = sheetName.trim();
+    setTargetName(cleanName);
+    const slug = slugify(cleanName);
+    setTargetSlug(slug);
+  };
+
+  // Trocar de aba
+  const handleSheetChange = (newSheet: string) => {
+    setSelectedSheet(newSheet);
+    if (workbook) {
+      parseSheet(workbook, newSheet, undefined);
+    }
+  };
+
+  // Trocar linha de cabeçalho manualmente (Linha 1 vs Linha 2)
+  const handleHeaderRowToggle = (newRowIndex: number) => {
+    setHeaderRowIndex(newRowIndex);
+    if (workbook && selectedSheet) {
+      parseSheet(workbook, selectedSheet, newRowIndex);
+    }
+  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -183,68 +237,13 @@ export default function ImportarExcelPage() {
     }
   };
 
-  const processFile = (file: File) => {
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      toast.error('Formato de arquivo inválido. Por favor envie um arquivo .xlsx ou .xls.');
-      return;
-    }
-
-    setFileName(file.name);
-    setImportResult(null);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-          defval: '',
-        });
-
-        if (json.length < 2) {
-          toast.error('A planilha deve conter pelo menos uma linha de cabeçalho e uma linha de dados.');
-          return;
-        }
-
-        const detectedHeaders: string[] = json[0].map((h: any) => String(h || '').trim()).filter(Boolean);
-        const dataRows: any[] = json.slice(1).filter((row) =>
-          row.some((cell: any) => cell !== '' && cell !== null && cell !== undefined)
-        );
-
-        setHeaders(detectedHeaders);
-        setRawRows(dataRows);
-
-        // Auto-detect mapeamento de colunas
-        const initialMapping: Record<string, string> = {};
-        detectedHeaders.forEach((header) => {
-          initialMapping[header] = autoDetectField(header);
-        });
-        setColumnMapping(initialMapping);
-
-        toast.success(`Arquivo carregado com sucesso: ${dataRows.length} linhas detectadas.`);
-      } catch (err: any) {
-        toast.error('Erro ao ler a planilha: ' + (err.message || 'Arquivo corrompido'));
-      }
-    };
-    reader.readAsBinaryString(file);
-  };
-
-  const handleMappingChange = (header: string, field: string) => {
-    setColumnMapping((prev) => ({
-      ...prev,
-      [header]: field,
-    }));
-  };
-
   const resetFile = () => {
     setFileName(null);
+    setWorkbook(null);
+    setSheetNames([]);
+    setSelectedSheet('');
     setHeaders([]);
     setRawRows([]);
-    setColumnMapping({});
     setImportResult(null);
     setProgress(0);
     setProcessedCount(0);
@@ -253,11 +252,10 @@ export default function ImportarExcelPage() {
     }
   };
 
+  // Executar a Importação Dinâmica
   const handleImport = async () => {
-    // Validar se o campo título foi mapeado
-    const hasTitulo = Object.values(columnMapping).includes('titulo');
-    if (!hasTitulo) {
-      toast.error('Você deve mapear pelo menos uma coluna para o campo "Título (Obrigatório)".');
+    if (headers.length === 0 || rawRows.length === 0) {
+      toast.error('Nenhum dado encontrado para importar.');
       return;
     }
 
@@ -277,58 +275,129 @@ export default function ImportarExcelPage() {
       }
 
       const today = new Date().toISOString().split('T')[0];
-      let successCount = 0;
-      let errorCount = 0;
+      const finalSlug = targetSlug || slugify(targetName) || 'corretivas';
+      const finalName = targetName || selectedSheet || 'Demandas';
 
-      // Montar objetos de demanda
-      const payload: any[] = [];
+      // 1. Salvar ou atualizar metadados da aba em tipos_demandas
+      try {
+        await supabase
+          .from('tipos_demandas')
+          .upsert(
+            {
+              user_id: user.id,
+              slug: finalSlug,
+              nome: finalName,
+              colunas: headers,
+            },
+            { onConflict: 'user_id,slug' }
+          );
+      } catch (errMeta) {
+        console.warn('Aviso ao salvar tipos_demandas (criando se necessário):', errMeta);
+      }
 
-      rawRows.forEach((row) => {
-        const item: Record<string, any> = {
-          user_id: user.id,
-          status: 'Pendente',
-          prioridade: 'Média',
-          data_criacao: today,
-        };
+      // 2. Mapeamento inteligente para colunas padrão
+      let tituloColIndex = -1;
+      let dataColIndex = -1;
+      let respColIndex = -1;
+      let griColIndex = -1;
+      let ativColIndex = -1;
+      let rdmColIndex = -1;
+      let statusColIndex = -1;
 
-        headers.forEach((header, index) => {
-          const targetField = columnMapping[header];
-          if (!targetField) return;
-
-          const cellValue = row[index];
-          if (cellValue === undefined || cellValue === null || cellValue === '') return;
-
-          if (targetField === 'status') {
-            item.status = normalizeStatus(cellValue);
-          } else if (targetField === 'prioridade') {
-            item.prioridade = normalizePrioridade(cellValue);
-          } else if (targetField === 'data_criacao') {
-            const parsed = parseExcelDate(cellValue);
-            if (parsed) item.data_criacao = parsed;
-          } else if (targetField === 'data_conclusao') {
-            const parsed = parseExcelDate(cellValue);
-            if (parsed) item.data_conclusao = parsed;
-          } else {
-            item[targetField] = String(cellValue).trim();
-          }
-        });
-
-        // Somente adicionar se houver título
-        if (item.titulo && String(item.titulo).trim().length > 0) {
-          payload.push(item);
-        } else {
-          errorCount++;
+      headers.forEach((h, idx) => {
+        const norm = normalizeHeader(h);
+        if (tituloColIndex === -1 && (norm.includes('demanda') || norm.includes('titulo') || norm.includes('tarefa') || norm.includes('nome') || norm.includes('assunto'))) {
+          tituloColIndex = idx;
+        }
+        if (dataColIndex === -1 && (norm.includes('data') || norm.includes('criacao'))) {
+          dataColIndex = idx;
+        }
+        if (respColIndex === -1 && (norm.includes('responsavel') || norm.includes('assignee') || norm.includes('dono'))) {
+          respColIndex = idx;
+        }
+        if (griColIndex === -1 && (norm === 'gri' || norm.includes('gri'))) {
+          griColIndex = idx;
+        }
+        if (ativColIndex === -1 && (norm.includes('atividade') || norm.includes('activity'))) {
+          ativColIndex = idx;
+        }
+        if (rdmColIndex === -1 && (norm.includes('rdm') || norm.includes('link'))) {
+          rdmColIndex = idx;
+        }
+        if (statusColIndex === -1 && (norm.includes('status') || norm.includes('situacao') || norm.includes('estado'))) {
+          statusColIndex = idx;
         }
       });
 
+      // Se não encontrou coluna de título específica, usa a primeira coluna com texto
+      if (tituloColIndex === -1) {
+        tituloColIndex = 0;
+      }
+
+      // 3. Montar linhas com dados padrão + JSONB completo
+      let successCount = 0;
+      let errorCount = 0;
+      const payload: any[] = [];
+
+      rawRows.forEach((row, rowIdx) => {
+        // Monta o objeto dinâmico com todas as colunas da planilha
+        const rowJson: Record<string, any> = {};
+        headers.forEach((colName, cIdx) => {
+          const val = row[cIdx];
+          if (val !== undefined && val !== null && val !== '') {
+            rowJson[colName] = String(val).trim();
+          }
+        });
+
+        // Título/Demanda
+        let rowTitulo = row[tituloColIndex] ? String(row[tituloColIndex]).trim() : '';
+        if (!rowTitulo) {
+          // Busca primeira célula com texto
+          const firstFilled = row.find((c: any) => c !== undefined && c !== null && String(c).trim().length > 0);
+          rowTitulo = firstFilled ? String(firstFilled).trim() : `Item #${rowIdx + 1}`;
+        }
+
+        // Data
+        let rowData = today;
+        if (dataColIndex !== -1 && row[dataColIndex]) {
+          const parsed = parseExcelDate(row[dataColIndex]);
+          if (parsed) rowData = parsed;
+        }
+
+        // Status
+        let rowStatus: DemandaStatus = 'Pendente';
+        if (statusColIndex !== -1 && row[statusColIndex]) {
+          const str = String(row[statusColIndex]).toLowerCase();
+          if (str.includes('andamento') || str.includes('progresso')) rowStatus = 'Em Andamento';
+          else if (str.includes('conclu') || str.includes('feito') || str.includes('finaliz')) rowStatus = 'Concluída';
+          else if (str.includes('cancel')) rowStatus = 'Cancelada';
+        }
+
+        const item: any = {
+          user_id: user.id,
+          tipo: finalSlug,
+          titulo: rowTitulo,
+          status: rowStatus,
+          data_criacao: rowData,
+          responsavel: respColIndex !== -1 && row[respColIndex] ? String(row[respColIndex]).trim() : null,
+          gri: griColIndex !== -1 && row[griColIndex] ? String(row[griColIndex]).trim() : null,
+          atividade: ativColIndex !== -1 && row[ativColIndex] ? String(row[ativColIndex]).trim() : null,
+          rdm_link: rdmColIndex !== -1 && row[rdmColIndex] ? String(row[rdmColIndex]).trim() : null,
+          prioridade: 'Média',
+          dados: rowJson,
+        };
+
+        payload.push(item);
+      });
+
       if (payload.length === 0) {
-        toast.error('Nenhuma linha válida com título encontrado para importar.');
+        toast.error('Nenhuma linha válida encontrada para importar.');
         setImporting(false);
         return;
       }
 
-      // Inserir em lotes de 20
-      const batchSize = 20;
+      // 4. Inserir no Supabase em lotes
+      const batchSize = 25;
       const totalToProcess = payload.length;
 
       for (let i = 0; i < totalToProcess; i += batchSize) {
@@ -347,10 +416,15 @@ export default function ImportarExcelPage() {
         setProgress(Math.round((currentProcessed / totalToProcess) * 100));
       }
 
-      setImportResult({ successCount, errorCount });
+      setImportResult({
+        successCount,
+        errorCount,
+        targetSlug: finalSlug,
+        targetName: finalName,
+      });
 
       if (successCount > 0) {
-        toast.success(`${successCount} demandas importadas com sucesso!`);
+        toast.success(`${successCount} demandas importadas para a aba "${finalName}"!`);
       } else {
         toast.error('Nenhuma demanda foi importada com sucesso.');
       }
@@ -366,10 +440,10 @@ export default function ImportarExcelPage() {
       {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Importar Demandas via Excel
+          Gerador & Importador Dinâmico de Excel
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Envie sua planilha (.xlsx ou .xls) para cadastrar múltiplas demandas de uma só vez.
+          Envie sua planilha com abas (Corretivas, Evolutivas, GDM STIs) e o sistema gera a página e colunas automaticamente.
         </p>
       </div>
 
@@ -379,16 +453,14 @@ export default function ImportarExcelPage() {
           <HelpCircle className="h-5 w-5 text-brand-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-brand-900 space-y-1">
             <p className="font-semibold text-brand-900">
-              Instruções para importação correta:
+              Detector Inteligente de Abas e Linha de Cabeçalho:
             </p>
             <p className="text-brand-800 text-xs sm:text-sm">
-              • A primeira linha deve conter os cabeçalhos das colunas.
+              • O sistema reconhece <strong>todas as abas</strong> do seu Excel (Corretivas, Evolutivas, GDM STIs).
               <br />
-              • A coluna <strong>Título</strong> é obrigatória.
+              • Permite escolher se os nomes das colunas estão na <strong>Linha 1</strong> (comum em Corretivas) ou na <strong>Linha 2</strong> (comum em Evolutivas).
               <br />
-              • O sistema detecta automaticamente colunas como Status, Responsável, Prioridade, Datas e Categoria.
-              <br />
-              • Status suportados: <em>Pendente, Em Andamento, Concluída, Cancelada</em> (valores não identificados viram Pendente).
+              • Todas as colunas são salvas e exibidas dinamicamente na página correspondente!
             </p>
           </div>
         </CardContent>
@@ -403,26 +475,22 @@ export default function ImportarExcelPage() {
                 <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-green-900">
-                    Importação Concluída!
+                    Importação Concluída com Sucesso!
                   </h3>
                   <p className="text-sm text-green-700 mt-0.5">
-                    <strong>{importResult.successCount}</strong> demandas adicionadas com sucesso.
-                    {importResult.errorCount > 0 && (
-                      <span className="text-red-600 ml-2">
-                        ({importResult.errorCount} linhas ignoradas por ausência de título ou erro).
-                      </span>
-                    )}
+                    <strong>{importResult.successCount}</strong> demandas adicionadas na aba{' '}
+                    <strong>"{importResult.targetName}"</strong>.
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={resetFile}>
                   <RefreshCw className="h-4 w-4 mr-1.5" />
-                  Importar Outro
+                  Importar Outra Aba
                 </Button>
-                <Link href="/demandas">
+                <Link href={`/demandas/${importResult.targetSlug}`}>
                   <Button size="sm">
-                    Ver Demandas
+                    Ver {importResult.targetName}
                     <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </Link>
@@ -432,8 +500,8 @@ export default function ImportarExcelPage() {
         </Card>
       )}
 
-      {/* Zona de Drag & Drop */}
-      {!fileName && (
+      {/* Zona de Upload */}
+      {!workbook && (
         <Card>
           <CardContent className="p-8">
             <div
@@ -456,14 +524,14 @@ export default function ImportarExcelPage() {
               />
               <UploadCloud className="mx-auto h-12 w-12 text-brand-500" />
               <h3 className="mt-4 text-base font-semibold text-gray-900">
-                Clique para selecionar ou arraste sua planilha aqui
+                Selecione ou arraste sua planilha Excel (.xlsx)
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Suporta arquivos Excel (.xlsx e .xls)
+                Reconhecemos automaticamente as abas Corretivas, Evolutivas, GDM STIs e suas colunas.
               </p>
               <div className="mt-6">
                 <Button type="button" variant="outline" size="sm">
-                  Escolher Arquivo do Computador
+                  Escolher Planilha do Computador
                 </Button>
               </div>
             </div>
@@ -471,142 +539,197 @@ export default function ImportarExcelPage() {
         </Card>
       )}
 
-      {/* Arquivo Selecionado e Mapeamento */}
-      {fileName && (
+      {/* Painel de Controle da Planilha Carregada */}
+      {workbook && (
         <div className="space-y-6">
-          {/* Card com arquivo ativo */}
+          {/* Card com arquivo e Seletor de Aba */}
           <Card>
-            <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-700">
-                  <FileSpreadsheet className="h-6 w-6" />
+            <CardHeader className="pb-3 border-b border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                    <FileSpreadsheet className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm sm:text-base">
+                      {fileName}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {sheetNames.length} aba(s) disponível(is)
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetFile}
+                  disabled={importing}
+                  className="text-gray-500 hover:text-red-600"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Trocar Arquivo
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-4 space-y-5">
+              {/* Seletor de Abas da Planilha */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-2">
+                  Selecione a Aba (Sheet) para Importar:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {sheetNames.map((sName) => (
+                    <button
+                      key={sName}
+                      type="button"
+                      onClick={() => handleSheetChange(sName)}
+                      className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+                        selectedSheet === sName
+                          ? 'bg-brand-500 text-white shadow-xs'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>{sName}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Seletor de Linha do Cabeçalho (Linha 1 vs Linha 2) */}
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/60 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-brand-600" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Onde estão os nomes das colunas nesta aba?
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-800">
+                    <input
+                      type="radio"
+                      name="headerRow"
+                      checked={headerRowIndex === 0}
+                      onChange={() => handleHeaderRowToggle(0)}
+                      className="text-brand-500 focus:ring-brand-500 h-4 w-4"
+                    />
+                    <span>Linha 1 (Ex: Corretivas)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-800">
+                    <input
+                      type="radio"
+                      name="headerRow"
+                      checked={headerRowIndex === 1}
+                      onChange={() => handleHeaderRowToggle(1)}
+                      className="text-brand-500 focus:ring-brand-500 h-4 w-4"
+                    />
+                    <span>Linha 2 (Ex: Evolutivas / Título na linha 1)</span>
+                  </label>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  {headerRowIndex === 0
+                    ? 'O sistema usará a primeira linha como nomes de colunas e começará a ler os dados a partir da linha 2.'
+                    : 'O sistema usará a segunda linha como nomes de colunas e começará a ler os dados a partir da linha 3.'}
+                </p>
+              </div>
+
+              {/* Destino no Menu */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Nome da Página / Categoria:
+                  </label>
+                  <input
+                    type="text"
+                    value={targetName}
+                    onChange={(e) => {
+                      setTargetName(e.target.value);
+                      setTargetSlug(slugify(e.target.value));
+                    }}
+                    className="w-full h-9 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm sm:text-base">
-                    {fileName}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {rawRows.length} linhas de dados encontradas
-                  </p>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Identificador (URL da Página):
+                  </label>
+                  <div className="flex items-center text-xs text-gray-500 h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 font-mono">
+                    /demandas/{targetSlug}
+                  </div>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetFile}
-                disabled={importing}
-                className="text-gray-500 hover:text-red-600"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Trocar Arquivo
-              </Button>
             </CardContent>
           </Card>
 
-          {/* Mapeamento de Colunas */}
+          {/* Colunas Detectadas */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Mapeamento de Colunas</CardTitle>
-              <CardDescription>
-                Confirme para qual campo de Demanda cada coluna da sua planilha deve ser mapeada.
-              </CardDescription>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold text-gray-900">
+                    Colunas Detectadas ({headers.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Essas colunas serão criadas automaticamente para a página "{targetName}".
+                  </CardDescription>
+                </div>
+                <span className="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-md border border-brand-200">
+                  {rawRows.length} linhas para importar
+                </span>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {headers.map((header) => {
-                  const currentValue = columnMapping[header] || '';
-                  const sampleValue = rawRows[0] ? String(rawRows[0][headers.indexOf(header)] || '-') : '-';
-
-                  return (
-                    <div
-                      key={header}
-                      className="p-3.5 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
-                    >
-                      <div>
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Coluna no Excel:
-                        </span>
-                        <p className="text-sm font-semibold text-gray-900 truncate" title={header}>
-                          {header}
-                        </p>
-                        <p className="text-xs text-gray-400 truncate mt-0.5" title={sampleValue}>
-                          Exemplo: {sampleValue}
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-medium text-gray-600 block mb-1">
-                          Mapear para:
-                        </label>
-                        <select
-                          value={currentValue}
-                          onChange={(e) => handleMappingChange(header, e.target.value)}
-                          disabled={importing}
-                          className={`w-full h-9 px-2.5 rounded-md border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 ${
-                            currentValue === 'titulo'
-                              ? 'border-brand-500 bg-brand-50 font-semibold text-brand-900'
-                              : currentValue !== ''
-                              ? 'border-gray-300 bg-white text-gray-900'
-                              : 'border-gray-200 bg-gray-100 text-gray-400'
-                          }`}
-                        >
-                          {FIELD_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  );
-                })}
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {headers.map((h, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200"
+                  >
+                    {h}
+                  </span>
+                ))}
               </div>
-
-              {!Object.values(columnMapping).includes('titulo') && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>Atenção: Você precisa associar uma coluna ao campo <strong>Título</strong> para prosseguir com a importação.</span>
-                </div>
-              )}
             </CardContent>
           </Card>
 
-          {/* Pré-visualização das 10 primeiras linhas */}
+          {/* Pré-visualização dos Dados */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                Pré-visualização dos Dados (Primeiras 10 linhas)
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Pré-visualização da Aba "{selectedSheet}" (Primeiras 10 linhas)
               </CardTitle>
-              <CardDescription>
-                Confira como os registros estão estruturados na planilha.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto border border-gray-200 rounded-lg">
                 <table className="w-full text-left text-xs text-gray-600">
                   <thead className="bg-gray-100/70 border-b border-gray-200 font-semibold text-gray-700">
                     <tr>
-                      <th className="px-3 py-2 w-12 text-center">#</th>
-                      {headers.map((header) => (
-                        <th key={header} className="px-4 py-2.5 whitespace-nowrap">
+                      <th className="px-3 py-2 w-10 text-center">#</th>
+                      {headers.map((header, idx) => (
+                        <th key={idx} className="px-3.5 py-2.5 whitespace-nowrap">
                           {header}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {rawRows.slice(0, 10).map((row, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50">
+                    {rawRows.slice(0, 10).map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-gray-50/50">
                         <td className="px-3 py-2 text-center text-gray-400 font-mono text-xs">
-                          {idx + 1}
+                          {rIdx + 1}
                         </td>
-                        {headers.map((header, colIdx) => (
+                        {headers.map((_, cIdx) => (
                           <td
-                            key={colIdx}
-                            className="px-4 py-2 whitespace-nowrap max-w-[200px] truncate"
+                            key={cIdx}
+                            className="px-3.5 py-2 whitespace-nowrap max-w-[220px] truncate"
                           >
-                            {row[colIdx] !== undefined && row[colIdx] !== null && row[colIdx] !== ''
-                              ? String(row[colIdx])
+                            {row[cIdx] !== undefined && row[cIdx] !== null && row[cIdx] !== ''
+                              ? String(row[cIdx])
                               : '-'}
                           </td>
                         ))}
@@ -618,13 +741,13 @@ export default function ImportarExcelPage() {
             </CardContent>
           </Card>
 
-          {/* Barra de Progresso durante a importação */}
+          {/* Progresso de Importação */}
           {importing && (
             <Card className="border-brand-200 bg-brand-50/30">
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-semibold text-brand-900">
-                    Importando registros... ({processedCount} de {rawRows.length})
+                    Importando registros de "{targetName}"... ({processedCount} de {rawRows.length})
                   </span>
                   <span className="font-bold text-brand-600">{progress}%</span>
                 </div>
@@ -638,7 +761,7 @@ export default function ImportarExcelPage() {
             </Card>
           )}
 
-          {/* Botão de Iniciar Importação */}
+          {/* Botões de Ação */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <Button
               type="button"
@@ -652,10 +775,10 @@ export default function ImportarExcelPage() {
               type="button"
               onClick={handleImport}
               loading={importing}
-              disabled={!Object.values(columnMapping).includes('titulo') || importing}
+              disabled={headers.length === 0 || rawRows.length === 0 || importing}
             >
               <UploadCloud className="h-4 w-4 mr-1.5" />
-              Importar {rawRows.length} Demandas
+              Importar {rawRows.length} Demandas para "{targetName}"
             </Button>
           </div>
         </div>

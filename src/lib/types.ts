@@ -4,7 +4,8 @@ export type DemandaPrioridade = 'Baixa' | 'Média' | 'Alta' | 'Urgente';
 export interface Demanda {
   id: string;
   user_id: string;
-  titulo: string; // Demanda
+  tipo: string; // 'corretivas' | 'evolutivas' | 'gdm-stis' | string
+  titulo: string; // Demanda / Título principal
   descricao: string | null;
   gri: string | null;
   atividade: string | null;
@@ -16,11 +17,13 @@ export interface Demanda {
   data_conclusao: string | null;
   categoria: string | null;
   observacoes: string | null;
+  dados: Record<string, any>; // Colunas e valores dinâmicos da planilha
   created_at: string;
   updated_at: string;
 }
 
 export interface DemandaInsert {
+  tipo?: string;
   titulo: string;
   descricao?: string;
   gri?: string;
@@ -33,6 +36,16 @@ export interface DemandaInsert {
   data_conclusao?: string;
   categoria?: string;
   observacoes?: string;
+  dados?: Record<string, any>;
+}
+
+export interface TipoDemanda {
+  id: string;
+  user_id: string;
+  slug: string;
+  nome: string;
+  colunas: string[];
+  created_at: string;
 }
 
 export interface Profile {
@@ -42,6 +55,12 @@ export interface Profile {
   avatar_url: string | null;
   created_at: string;
 }
+
+export const DEFAULT_TIPOS_DEMANDAS = [
+  { slug: 'corretivas', nome: 'Corretivas' },
+  { slug: 'evolutivas', nome: 'Evolutivas' },
+  { slug: 'gdm-stis', nome: 'GDM STIs' },
+];
 
 export const STATUS_OPTIONS: DemandaStatus[] = ['Pendente', 'Em Andamento', 'Concluída', 'Cancelada'];
 export const PRIORIDADE_OPTIONS: DemandaPrioridade[] = ['Baixa', 'Média', 'Alta', 'Urgente'];

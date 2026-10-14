@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -12,6 +12,7 @@ import {
   DemandaPrioridade,
   STATUS_OPTIONS,
   PRIORIDADE_OPTIONS,
+  DEFAULT_TIPOS_DEMANDAS,
 } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -21,11 +22,14 @@ import { Button } from '@/components/ui/Button';
 
 export default function NovaDemandaPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const initialTipo = searchParams.get('tipo') || 'corretivas';
 
+  const [loading, setLoading] = useState(false);
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const [formData, setFormData] = useState({
+    tipo: initialTipo,
     data_criacao: today,
     titulo: '',
     gri: '',
@@ -76,6 +80,7 @@ export default function NovaDemandaPage() {
 
       const { error } = await supabase.from('demandas').insert({
         user_id: user.id,
+        tipo: formData.tipo,
         titulo: formData.titulo.trim(),
         gri: formData.gri.trim() || null,
         atividade: formData.atividade.trim() || null,
@@ -87,6 +92,7 @@ export default function NovaDemandaPage() {
         data_conclusao: formData.data_conclusao || null,
         descricao: formData.descricao.trim() || null,
         observacoes: formData.observacoes.trim() || null,
+        dados: {},
       });
 
       if (error) {
@@ -94,7 +100,7 @@ export default function NovaDemandaPage() {
       }
 
       toast.success('Demanda criada com sucesso!');
-      router.push('/demandas');
+      router.push(`/demandas/${formData.tipo}`);
     } catch (err: any) {
       toast.error('Erro ao criar demanda: ' + (err.message || 'Erro desconhecido'));
     } finally {
@@ -107,7 +113,7 @@ export default function NovaDemandaPage() {
       {/* Voltar */}
       <div className="flex items-center gap-2">
         <Link
-          href="/demandas"
+          href={`/demandas/${formData.tipo}`}
           className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -120,11 +126,25 @@ export default function NovaDemandaPage() {
         <CardHeader>
           <CardTitle className="text-xl">Nova Demanda</CardTitle>
           <CardDescription>
-            Cadastre uma nova demanda informando data, GRI, atividade, responsável e status.
+            Cadastre uma nova demanda informando a aba de destino, data, atividade e responsável.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Seletor de Tipo / Aba */}
+            <div>
+              <Select
+                label="Aba de Destino *"
+                id="tipo"
+                value={formData.tipo}
+                onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                options={DEFAULT_TIPOS_DEMANDAS.map((t) => ({
+                  value: t.slug,
+                  label: t.nome,
+                }))}
+              />
+            </div>
+
             {/* Linha 1: Data e Demanda */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -253,7 +273,7 @@ export default function NovaDemandaPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push('/demandas')}
+                onClick={() => router.push(`/demandas/${formData.tipo}`)}
                 disabled={loading}
               >
                 Cancelar

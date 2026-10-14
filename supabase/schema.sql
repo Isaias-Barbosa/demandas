@@ -41,6 +41,7 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 CREATE TABLE IF NOT EXISTS public.demandas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL DEFAULT 'corretivas',
   titulo TEXT NOT NULL,
   gri TEXT,
   atividade TEXT,
@@ -53,9 +54,35 @@ CREATE TABLE IF NOT EXISTS public.demandas (
   descricao TEXT,
   categoria TEXT,
   observacoes TEXT,
+  dados JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Tabela para guardar abas/planilhas e suas colunas dinâmicas
+CREATE TABLE IF NOT EXISTS public.tipos_demandas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  nome TEXT NOT NULL,
+  colunas JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, slug)
+);
+
+ALTER TABLE public.tipos_demandas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own tipos_demandas" ON public.tipos_demandas
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own tipos_demandas" ON public.tipos_demandas
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own tipos_demandas" ON public.tipos_demandas
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own tipos_demandas" ON public.tipos_demandas
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- Index for performance
 CREATE INDEX IF NOT EXISTS idx_demandas_user_id ON public.demandas(user_id);
