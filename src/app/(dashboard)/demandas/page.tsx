@@ -7,7 +7,6 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus,
   Search,
-  Filter,
   Pencil,
   Trash2,
   ChevronLeft,
@@ -70,7 +69,7 @@ export default function DemandasPage() {
         .from('demandas')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('data_criacao', { ascending: false });
 
       if (error) {
         throw error;
@@ -87,18 +86,17 @@ export default function DemandasPage() {
   // Filtragem dos dados
   const filteredDemandas = useMemo(() => {
     return demandas.filter((demanda) => {
-      // Busca por título ou responsável
+      const q = search.toLowerCase();
       const matchesSearch =
         search === '' ||
-        demanda.titulo.toLowerCase().includes(search.toLowerCase()) ||
-        (demanda.responsavel &&
-          demanda.responsavel.toLowerCase().includes(search.toLowerCase()));
+        demanda.titulo.toLowerCase().includes(q) ||
+        (demanda.responsavel && demanda.responsavel.toLowerCase().includes(q)) ||
+        (demanda.gri && demanda.gri.toLowerCase().includes(q)) ||
+        (demanda.atividade && demanda.atividade.toLowerCase().includes(q));
 
-      // Filtro de Status
       const matchesStatus =
         statusFilter === 'todos' || demanda.status === statusFilter;
 
-      // Filtro de Prioridade
       const matchesPrioridade =
         prioridadeFilter === 'todas' || demanda.prioridade === prioridadeFilter;
 
@@ -141,7 +139,7 @@ export default function DemandasPage() {
     if (!editingDemanda) return;
 
     if (!editingDemanda.titulo.trim()) {
-      toast.error('O título é obrigatório.');
+      toast.error('O título/demanda é obrigatório.');
       return;
     }
 
@@ -152,12 +150,15 @@ export default function DemandasPage() {
         .from('demandas')
         .update({
           titulo: editingDemanda.titulo,
-          descricao: editingDemanda.descricao || null,
-          status: editingDemanda.status,
+          gri: editingDemanda.gri || null,
+          atividade: editingDemanda.atividade || null,
           responsavel: editingDemanda.responsavel || null,
+          status: editingDemanda.status,
+          rdm_link: editingDemanda.rdm_link || null,
           prioridade: editingDemanda.prioridade,
+          data_criacao: editingDemanda.data_criacao,
           data_conclusao: editingDemanda.data_conclusao || null,
-          categoria: editingDemanda.categoria || null,
+          descricao: editingDemanda.descricao || null,
           observacoes: editingDemanda.observacoes || null,
           updated_at: new Date().toISOString(),
         })
@@ -213,7 +214,7 @@ export default function DemandasPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por título ou responsável..."
+                placeholder="Buscar por Demanda, Responsável, GRI, Atividade..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-10 pl-9 pr-4 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
@@ -290,22 +291,28 @@ export default function DemandasPage() {
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-700">
                   <tr>
-                    <th scope="col" className="px-6 py-3.5">
-                      Título
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                      Data
                     </th>
-                    <th scope="col" className="px-6 py-3.5">
-                      Status
+                    <th scope="col" className="px-5 py-3.5 whitespace-nowrap">
+                      Demanda
                     </th>
-                    <th scope="col" className="px-6 py-3.5">
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                      GRI
+                    </th>
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                      Atividade
+                    </th>
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
                       Responsável
                     </th>
-                    <th scope="col" className="px-6 py-3.5">
-                      Prioridade
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                      Status
                     </th>
-                    <th scope="col" className="px-6 py-3.5">
-                      Data Criação
+                    <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
+                      RDM Link
                     </th>
-                    <th scope="col" className="px-6 py-3.5 text-right">
+                    <th scope="col" className="px-4 py-3.5 text-center whitespace-nowrap">
                       Ações
                     </th>
                   </tr>
@@ -316,23 +323,49 @@ export default function DemandasPage() {
                       key={demanda.id}
                       className="hover:bg-gray-50/80 transition-colors"
                     >
-                      {/* Título */}
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">
+                      {/* 1. Data */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-gray-700 font-medium text-xs">
+                        {formatDate(demanda.data_criacao)}
+                      </td>
+
+                      {/* 2. Demanda */}
+                      <td className="px-5 py-3.5 max-w-[260px]">
+                        <div className="font-semibold text-gray-900 truncate" title={demanda.titulo}>
                           {demanda.titulo}
                         </div>
-                        {demanda.categoria && (
-                          <span className="inline-block text-xs text-gray-400 mt-0.5">
-                            {demanda.categoria}
-                          </span>
+                        {demanda.descricao && (
+                          <div className="text-xs text-gray-500 truncate mt-0.5" title={demanda.descricao}>
+                            {demanda.descricao}
+                          </div>
                         )}
                       </td>
 
-                      {/* Status */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* 3. GRI */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs text-gray-700 font-mono">
+                        {demanda.gri || <span className="text-gray-300">-</span>}
+                      </td>
+
+                      {/* 4. Atividade */}
+                      <td className="px-4 py-3.5 max-w-[200px] text-xs text-gray-700">
+                        <div className="truncate" title={demanda.atividade || ''}>
+                          {demanda.atividade || <span className="text-gray-300">-</span>}
+                        </div>
+                      </td>
+
+                      {/* 5. Responsável */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs">
+                        <span className="text-gray-800 font-medium">
+                          {demanda.responsavel || (
+                            <span className="text-gray-400 italic">Não atribuído</span>
+                          )}
+                        </span>
+                      </td>
+
+                      {/* 6. Status */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <span
                           className={cn(
-                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
                             STATUS_COLORS[demanda.status] || 'bg-gray-100 text-gray-800'
                           )}
                         >
@@ -340,40 +373,37 @@ export default function DemandasPage() {
                         </span>
                       </td>
 
-                      {/* Responsável */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-gray-800">
-                          {demanda.responsavel || (
-                            <span className="text-gray-400 italic">Não atribuído</span>
-                          )}
-                        </span>
+                      {/* 7. RDM Link */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs">
+                        {demanda.rdm_link ? (
+                          demanda.rdm_link.startsWith('http://') || demanda.rdm_link.startsWith('https://') ? (
+                            <a
+                              href={demanda.rdm_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-800 hover:underline font-medium"
+                              title={demanda.rdm_link}
+                            >
+                              <span>Acessar</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-gray-700 font-mono text-xs" title={demanda.rdm_link}>
+                              {demanda.rdm_link}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </td>
 
-                      {/* Prioridade */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={cn(
-                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                            PRIORIDADE_COLORS[demanda.prioridade] ||
-                              'bg-gray-100 text-gray-800'
-                          )}
-                        >
-                          {demanda.prioridade}
-                        </span>
-                      </td>
-
-                      {/* Data Criação */}
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                        {formatDate(demanda.data_criacao)}
-                      </td>
-
-                      {/* Ações */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      {/* 8. Ações */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
+                        <div className="inline-flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => setEditingDemanda({ ...demanda })}
-                            className="p-1.5 text-gray-500 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                             title="Editar demanda"
                           >
                             <Pencil className="h-4 w-4" />
@@ -432,7 +462,7 @@ export default function DemandasPage() {
       {/* Modal de Edição Rápida */}
       {editingDemanda && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+          <div className="relative w-full max-w-xl rounded-xl bg-white shadow-2xl border border-gray-200 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-gray-50/50">
               <h3 className="text-lg font-semibold text-gray-900">
                 Editar Demanda
@@ -446,18 +476,19 @@ export default function DemandasPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
-              <Input
-                label="Título *"
-                id="edit-titulo"
-                value={editingDemanda.titulo}
-                onChange={(e) =>
-                  setEditingDemanda({ ...editingDemanda, titulo: e.target.value })
-                }
-                required
-              />
-
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Data *"
+                  id="edit-data"
+                  type="date"
+                  value={editingDemanda.data_criacao || ''}
+                  onChange={(e) =>
+                    setEditingDemanda({ ...editingDemanda, data_criacao: e.target.value })
+                  }
+                  required
+                />
+
                 <Select
                   label="Status"
                   id="edit-status"
@@ -470,18 +501,43 @@ export default function DemandasPage() {
                   }
                   options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
                 />
+              </div>
 
-                <Select
-                  label="Prioridade"
-                  id="edit-prioridade"
-                  value={editingDemanda.prioridade}
+              <Input
+                label="Demanda *"
+                id="edit-titulo"
+                value={editingDemanda.titulo}
+                onChange={(e) =>
+                  setEditingDemanda({ ...editingDemanda, titulo: e.target.value })
+                }
+                required
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="GRI"
+                  id="edit-gri"
+                  value={editingDemanda.gri || ''}
                   onChange={(e) =>
                     setEditingDemanda({
                       ...editingDemanda,
-                      prioridade: e.target.value as DemandaPrioridade,
+                      gri: e.target.value,
                     })
                   }
-                  options={PRIORIDADE_OPTIONS.map((p) => ({ value: p, label: p }))}
+                  placeholder="Código GRI"
+                />
+
+                <Input
+                  label="Atividade"
+                  id="edit-atividade"
+                  value={editingDemanda.atividade || ''}
+                  onChange={(e) =>
+                    setEditingDemanda({
+                      ...editingDemanda,
+                      atividade: e.target.value,
+                    })
+                  }
+                  placeholder="Nome da atividade"
                 />
               </div>
 
@@ -500,6 +556,34 @@ export default function DemandasPage() {
                 />
 
                 <Input
+                  label="RDM Link"
+                  id="edit-rdm-link"
+                  value={editingDemanda.rdm_link || ''}
+                  onChange={(e) =>
+                    setEditingDemanda({
+                      ...editingDemanda,
+                      rdm_link: e.target.value,
+                    })
+                  }
+                  placeholder="https://... ou código RDM"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select
+                  label="Prioridade"
+                  id="edit-prioridade"
+                  value={editingDemanda.prioridade}
+                  onChange={(e) =>
+                    setEditingDemanda({
+                      ...editingDemanda,
+                      prioridade: e.target.value as DemandaPrioridade,
+                    })
+                  }
+                  options={PRIORIDADE_OPTIONS.map((p) => ({ value: p, label: p }))}
+                />
+
+                <Input
                   label="Data de Conclusão"
                   id="edit-data-conclusao"
                   type="date"
@@ -513,21 +597,8 @@ export default function DemandasPage() {
                 />
               </div>
 
-              <Input
-                label="Categoria"
-                id="edit-categoria"
-                value={editingDemanda.categoria || ''}
-                onChange={(e) =>
-                  setEditingDemanda({
-                    ...editingDemanda,
-                    categoria: e.target.value,
-                  })
-                }
-                placeholder="Ex: Marketing, Desenvolvimento, Suporte"
-              />
-
               <Textarea
-                label="Descrição"
+                label="Descrição / Observações"
                 id="edit-descricao"
                 value={editingDemanda.descricao || ''}
                 onChange={(e) =>
@@ -536,8 +607,8 @@ export default function DemandasPage() {
                     descricao: e.target.value,
                   })
                 }
-                rows={3}
-                placeholder="Detalhes sobre a demanda..."
+                rows={2}
+                placeholder="Detalhes ou anotações..."
               />
 
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100">
@@ -545,7 +616,7 @@ export default function DemandasPage() {
                   href={`/demandas/${editingDemanda.id}/editar`}
                   className="text-xs text-brand-500 hover:underline flex items-center gap-1"
                 >
-                  Abrir formulário completo
+                  Abrir página de edição completa
                   <ExternalLink className="h-3 w-3" />
                 </Link>
 

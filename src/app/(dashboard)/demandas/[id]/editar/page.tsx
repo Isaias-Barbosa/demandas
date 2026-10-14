@@ -29,14 +29,16 @@ export default function EditarDemandaPage() {
   const [notFound, setNotFound] = useState(false);
 
   const [formData, setFormData] = useState({
-    titulo: '',
-    descricao: '',
-    status: 'Pendente' as DemandaStatus,
-    responsavel: '',
-    prioridade: 'Média' as DemandaPrioridade,
     data_criacao: '',
+    titulo: '',
+    gri: '',
+    atividade: '',
+    responsavel: '',
+    status: 'Pendente' as DemandaStatus,
+    rdm_link: '',
+    prioridade: 'Média' as DemandaPrioridade,
     data_conclusao: '',
-    categoria: '',
+    descricao: '',
     observacoes: '',
   });
 
@@ -75,14 +77,16 @@ export default function EditarDemandaPage() {
 
       const demanda = data as Demanda;
       setFormData({
-        titulo: demanda.titulo || '',
-        descricao: demanda.descricao || '',
-        status: demanda.status || 'Pendente',
-        responsavel: demanda.responsavel || '',
-        prioridade: demanda.prioridade || 'Média',
         data_criacao: demanda.data_criacao || '',
+        titulo: demanda.titulo || '',
+        gri: demanda.gri || '',
+        atividade: demanda.atividade || '',
+        responsavel: demanda.responsavel || '',
+        status: demanda.status || 'Pendente',
+        rdm_link: demanda.rdm_link || '',
+        prioridade: demanda.prioridade || 'Média',
         data_conclusao: demanda.data_conclusao || '',
-        categoria: demanda.categoria || '',
+        descricao: demanda.descricao || '',
         observacoes: demanda.observacoes || '',
       });
     } catch (err) {
@@ -95,10 +99,10 @@ export default function EditarDemandaPage() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.titulo.trim()) {
-      newErrors.titulo = 'O título é obrigatório.';
+      newErrors.titulo = 'O nome da demanda é obrigatório.';
     }
     if (!formData.data_criacao) {
-      newErrors.data_criacao = 'A data de criação é obrigatória.';
+      newErrors.data_criacao = 'A data é obrigatória.';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -129,13 +133,15 @@ export default function EditarDemandaPage() {
         .from('demandas')
         .update({
           titulo: formData.titulo.trim(),
-          descricao: formData.descricao.trim() || null,
-          status: formData.status,
+          gri: formData.gri.trim() || null,
+          atividade: formData.atividade.trim() || null,
           responsavel: formData.responsavel.trim() || null,
+          status: formData.status,
+          rdm_link: formData.rdm_link.trim() || null,
           prioridade: formData.prioridade,
           data_criacao: formData.data_criacao,
           data_conclusao: formData.data_conclusao || null,
-          categoria: formData.categoria.trim() || null,
+          descricao: formData.descricao.trim() || null,
           observacoes: formData.observacoes.trim() || null,
           updated_at: new Date().toISOString(),
         })
@@ -227,31 +233,69 @@ export default function EditarDemandaPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Título */}
-            <Input
-              label="Título *"
-              id="titulo"
-              value={formData.titulo}
-              onChange={(e) =>
-                setFormData({ ...formData, titulo: e.target.value })
-              }
-              error={errors.titulo}
-              required
-            />
+            {/* Linha 1: Data e Demanda */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Input
+                  label="Data *"
+                  id="data_criacao"
+                  type="date"
+                  value={formData.data_criacao}
+                  onChange={(e) =>
+                    setFormData({ ...formData, data_criacao: e.target.value })
+                  }
+                  error={errors.data_criacao}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Input
+                  label="Demanda *"
+                  id="titulo"
+                  value={formData.titulo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, titulo: e.target.value })
+                  }
+                  error={errors.titulo}
+                  required
+                />
+              </div>
+            </div>
 
-            {/* Descrição */}
-            <Textarea
-              label="Descrição"
-              id="descricao"
-              rows={3}
-              value={formData.descricao}
-              onChange={(e) =>
-                setFormData({ ...formData, descricao: e.target.value })
-              }
-            />
-
-            {/* Status e Prioridade */}
+            {/* Linha 2: GRI e Atividade */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="GRI"
+                id="gri"
+                placeholder="Ex: GRI-12345"
+                value={formData.gri}
+                onChange={(e) =>
+                  setFormData({ ...formData, gri: e.target.value })
+                }
+              />
+
+              <Input
+                label="Atividade"
+                id="atividade"
+                placeholder="Nome da atividade"
+                value={formData.atividade}
+                onChange={(e) =>
+                  setFormData({ ...formData, atividade: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Linha 3: Responsável e Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Responsável"
+                id="responsavel"
+                value={formData.responsavel}
+                onChange={(e) =>
+                  setFormData({ ...formData, responsavel: e.target.value })
+                }
+              />
+
               <Select
                 label="Status"
                 id="status"
@@ -266,6 +310,19 @@ export default function EditarDemandaPage() {
                   value: status,
                   label: status,
                 }))}
+              />
+            </div>
+
+            {/* Linha 4: RDM Link e Prioridade */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="RDM Link"
+                id="rdm_link"
+                placeholder="https://... ou código RDM"
+                value={formData.rdm_link}
+                onChange={(e) =>
+                  setFormData({ ...formData, rdm_link: e.target.value })
+                }
               />
 
               <Select
@@ -285,60 +342,14 @@ export default function EditarDemandaPage() {
               />
             </div>
 
-            {/* Responsável e Categoria */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Responsável"
-                id="responsavel"
-                value={formData.responsavel}
-                onChange={(e) =>
-                  setFormData({ ...formData, responsavel: e.target.value })
-                }
-              />
-
-              <Input
-                label="Categoria"
-                id="categoria"
-                value={formData.categoria}
-                onChange={(e) =>
-                  setFormData({ ...formData, categoria: e.target.value })
-                }
-              />
-            </div>
-
-            {/* Datas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Data de Criação *"
-                id="data_criacao"
-                type="date"
-                value={formData.data_criacao}
-                onChange={(e) =>
-                  setFormData({ ...formData, data_criacao: e.target.value })
-                }
-                error={errors.data_criacao}
-                required
-              />
-
-              <Input
-                label="Data de Conclusão"
-                id="data_conclusao"
-                type="date"
-                value={formData.data_conclusao}
-                onChange={(e) =>
-                  setFormData({ ...formData, data_conclusao: e.target.value })
-                }
-              />
-            </div>
-
-            {/* Observações */}
+            {/* Descrição */}
             <Textarea
-              label="Observações"
-              id="observacoes"
-              rows={2}
-              value={formData.observacoes}
+              label="Descrição / Detalhes"
+              id="descricao"
+              rows={3}
+              value={formData.descricao}
               onChange={(e) =>
-                setFormData({ ...formData, observacoes: e.target.value })
+                setFormData({ ...formData, descricao: e.target.value })
               }
             />
 

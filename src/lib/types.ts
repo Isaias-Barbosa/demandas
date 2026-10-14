@@ -4,12 +4,15 @@ export type DemandaPrioridade = 'Baixa' | 'Média' | 'Alta' | 'Urgente';
 export interface Demanda {
   id: string;
   user_id: string;
-  titulo: string;
+  titulo: string; // Demanda
   descricao: string | null;
+  gri: string | null;
+  atividade: string | null;
+  rdm_link: string | null;
   status: DemandaStatus;
   responsavel: string | null;
   prioridade: DemandaPrioridade;
-  data_criacao: string;
+  data_criacao: string; // Data
   data_conclusao: string | null;
   categoria: string | null;
   observacoes: string | null;
@@ -20,6 +23,9 @@ export interface Demanda {
 export interface DemandaInsert {
   titulo: string;
   descricao?: string;
+  gri?: string;
+  atividade?: string;
+  rdm_link?: string;
   status?: DemandaStatus;
   responsavel?: string;
   prioridade?: DemandaPrioridade;

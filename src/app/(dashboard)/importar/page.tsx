@@ -21,14 +21,16 @@ import { Button } from '@/components/ui/Button';
 
 const FIELD_OPTIONS = [
   { value: '', label: 'Ignorar coluna' },
-  { value: 'titulo', label: 'Título (Obrigatório)' },
-  { value: 'descricao', label: 'Descrição' },
-  { value: 'status', label: 'Status' },
+  { value: 'data_criacao', label: 'Data' },
+  { value: 'titulo', label: 'Demanda (Obrigatório)' },
+  { value: 'gri', label: 'GRI' },
+  { value: 'atividade', label: 'Atividade' },
   { value: 'responsavel', label: 'Responsável' },
+  { value: 'status', label: 'Status' },
+  { value: 'rdm_link', label: 'RDM Link' },
+  { value: 'descricao', label: 'Descrição' },
   { value: 'prioridade', label: 'Prioridade' },
-  { value: 'data_criacao', label: 'Data de Criação' },
   { value: 'data_conclusao', label: 'Data de Conclusão' },
-  { value: 'categoria', label: 'Categoria' },
   { value: 'observacoes', label: 'Observações' },
 ];
 
@@ -43,20 +45,17 @@ function normalizeHeader(header: string): string {
 function autoDetectField(header: string): string {
   const norm = normalizeHeader(header);
 
-  if (norm.includes('titulo') || norm.includes('title') || norm.includes('tarefa') || norm.includes('nome') || norm.includes('assunto') || norm.includes('demanda')) {
+  if (norm === 'gri' || norm.includes('gri')) {
+    return 'gri';
+  }
+  if (norm.includes('atividade') || norm.includes('activity') || norm.includes('acao')) {
+    return 'atividade';
+  }
+  if (norm.includes('rdm') || norm.includes('link')) {
+    return 'rdm_link';
+  }
+  if (norm.includes('demanda') || norm.includes('titulo') || norm.includes('title') || norm.includes('tarefa') || norm.includes('nome') || norm.includes('assunto')) {
     return 'titulo';
-  }
-  if (norm.includes('desc') || norm.includes('detalhe')) {
-    return 'descricao';
-  }
-  if (norm.includes('status') || norm.includes('situacao') || norm.includes('estado')) {
-    return 'status';
-  }
-  if (norm.includes('responsavel') || norm.includes('assignee') || norm.includes('dono') || norm.includes('atribuido')) {
-    return 'responsavel';
-  }
-  if (norm.includes('prioridade') || norm.includes('priority') || norm.includes('urgencia')) {
-    return 'prioridade';
   }
   if (
     norm.includes('datacriacao') ||
@@ -64,9 +63,21 @@ function autoDetectField(header: string): string {
     norm.includes('criacao') ||
     norm.includes('dataabertura') ||
     norm.includes('createdat') ||
-    (norm.includes('data') && !norm.includes('conclu') && !norm.includes('final'))
+    (norm.startsWith('data') && !norm.includes('conclu') && !norm.includes('final'))
   ) {
     return 'data_criacao';
+  }
+  if (norm.includes('responsavel') || norm.includes('assignee') || norm.includes('dono') || norm.includes('atribuido')) {
+    return 'responsavel';
+  }
+  if (norm.includes('status') || norm.includes('situacao') || norm.includes('estado')) {
+    return 'status';
+  }
+  if (norm.includes('prioridade') || norm.includes('priority') || norm.includes('urgencia')) {
+    return 'prioridade';
+  }
+  if (norm.includes('desc') || norm.includes('detalhe')) {
+    return 'descricao';
   }
   if (
     norm.includes('dataconclusao') ||
@@ -76,9 +87,6 @@ function autoDetectField(header: string): string {
     norm.includes('finalizacao')
   ) {
     return 'data_conclusao';
-  }
-  if (norm.includes('categoria') || norm.includes('setor') || norm.includes('departamento') || norm.includes('tipo')) {
-    return 'categoria';
   }
   if (norm.includes('observacao') || norm.includes('obs') || norm.includes('nota') || norm.includes('comentario')) {
     return 'observacoes';

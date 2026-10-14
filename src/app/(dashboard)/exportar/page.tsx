@@ -23,14 +23,15 @@ interface ExportField {
 }
 
 const EXPORT_FIELDS: ExportField[] = [
-  { id: 'titulo', label: 'Título' },
-  { id: 'descricao', label: 'Descrição' },
-  { id: 'status', label: 'Status' },
+  { id: 'data_criacao', label: 'Data' },
+  { id: 'titulo', label: 'Demanda' },
+  { id: 'gri', label: 'GRI' },
+  { id: 'atividade', label: 'Atividade' },
   { id: 'responsavel', label: 'Responsável' },
+  { id: 'status', label: 'Status' },
+  { id: 'rdm_link', label: 'RDM Link' },
   { id: 'prioridade', label: 'Prioridade' },
-  { id: 'data_criacao', label: 'Data de Criação' },
-  { id: 'data_conclusao', label: 'Data de Conclusão' },
-  { id: 'categoria', label: 'Categoria' },
+  { id: 'descricao', label: 'Descrição' },
   { id: 'observacoes', label: 'Observações' },
 ];
 
