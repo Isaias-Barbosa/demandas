@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus,
   Search,
+  Eye,
   Pencil,
   Trash2,
   ChevronLeft,
@@ -46,6 +47,9 @@ export default function DemandasPage() {
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Modal de Visualização
+  const [viewingDemanda, setViewingDemanda] = useState<Demanda | null>(null);
 
   // Modal de Edição
   const [editingDemanda, setEditingDemanda] = useState<Demanda | null>(null);
@@ -402,6 +406,14 @@ export default function DemandasPage() {
                         <div className="inline-flex items-center justify-center gap-1">
                           <button
                             type="button"
+                            onClick={() => setViewingDemanda(demanda)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Visualizar detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setEditingDemanda({ ...demanda })}
                             className="p-1.5 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                             title="Editar demanda"
@@ -635,6 +647,183 @@ export default function DemandasPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Visualização de Detalhes */}
+      {viewingDemanda && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="relative w-full max-w-xl rounded-xl bg-white shadow-2xl border border-gray-200 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Cabeçalho do Modal */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-gray-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Eye className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Detalhes da Demanda
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Informações completas do registro
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingDemanda(null)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo dos Detalhes */}
+            <div className="p-6 space-y-5 overflow-y-auto">
+              {/* Título / Demanda */}
+              <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-1">
+                  Demanda
+                </span>
+                <h2 className="text-lg font-bold text-gray-900 leading-snug">
+                  {viewingDemanda.titulo}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span
+                    className={cn(
+                      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
+                      STATUS_COLORS[viewingDemanda.status] || 'bg-gray-100 text-gray-800'
+                    )}
+                  >
+                    Status: {viewingDemanda.status}
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                      PRIORIDADE_COLORS[viewingDemanda.prioridade] || 'bg-gray-100 text-gray-800'
+                    )}
+                  >
+                    Prioridade: {viewingDemanda.prioridade}
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid com Campos Estruturados */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border border-gray-100 p-3 rounded-lg bg-white">
+                  <span className="text-xs font-medium text-gray-500 block">Data de Criação</span>
+                  <span className="text-sm font-semibold text-gray-800 mt-0.5 block">
+                    {formatDate(viewingDemanda.data_criacao)}
+                  </span>
+                </div>
+
+                <div className="border border-gray-100 p-3 rounded-lg bg-white">
+                  <span className="text-xs font-medium text-gray-500 block">Responsável</span>
+                  <span className="text-sm font-semibold text-gray-800 mt-0.5 block">
+                    {viewingDemanda.responsavel || <span className="text-gray-400 italic font-normal">Não atribuído</span>}
+                  </span>
+                </div>
+
+                <div className="border border-gray-100 p-3 rounded-lg bg-white">
+                  <span className="text-xs font-medium text-gray-500 block">GRI</span>
+                  <span className="text-sm font-mono font-semibold text-gray-800 mt-0.5 block">
+                    {viewingDemanda.gri || <span className="text-gray-400 font-normal">-</span>}
+                  </span>
+                </div>
+
+                <div className="border border-gray-100 p-3 rounded-lg bg-white">
+                  <span className="text-xs font-medium text-gray-500 block">Atividade</span>
+                  <span className="text-sm font-semibold text-gray-800 mt-0.5 block truncate" title={viewingDemanda.atividade || ''}>
+                    {viewingDemanda.atividade || <span className="text-gray-400 font-normal">-</span>}
+                  </span>
+                </div>
+              </div>
+
+              {/* RDM Link */}
+              <div className="border border-gray-100 p-3.5 rounded-lg bg-white space-y-1">
+                <span className="text-xs font-medium text-gray-500 block">RDM Link</span>
+                {viewingDemanda.rdm_link ? (
+                  viewingDemanda.rdm_link.startsWith('http://') || viewingDemanda.rdm_link.startsWith('https://') ? (
+                    <a
+                      href={viewingDemanda.rdm_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-800 hover:underline break-all"
+                    >
+                      <span>{viewingDemanda.rdm_link}</span>
+                      <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-sm font-mono text-gray-800 block">
+                      {viewingDemanda.rdm_link}
+                    </span>
+                  )
+                ) : (
+                  <span className="text-sm text-gray-400 italic">Nenhum link ou código RDM informado</span>
+                )}
+              </div>
+
+              {/* Data de Conclusão se houver */}
+              {viewingDemanda.data_conclusao && (
+                <div className="border border-gray-100 p-3 rounded-lg bg-white">
+                  <span className="text-xs font-medium text-gray-500 block">Data de Conclusão</span>
+                  <span className="text-sm font-semibold text-gray-800 mt-0.5 block">
+                    {formatDate(viewingDemanda.data_conclusao)}
+                  </span>
+                </div>
+              )}
+
+              {/* Descrição */}
+              {viewingDemanda.descricao && (
+                <div className="border border-gray-100 p-3.5 rounded-lg bg-white space-y-1">
+                  <span className="text-xs font-medium text-gray-500 block">Descrição</span>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {viewingDemanda.descricao}
+                  </p>
+                </div>
+              )}
+
+              {/* Observações */}
+              {viewingDemanda.observacoes && (
+                <div className="border border-gray-100 p-3.5 rounded-lg bg-white space-y-1">
+                  <span className="text-xs font-medium text-gray-500 block">Observações</span>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {viewingDemanda.observacoes}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé com Ações */}
+            <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4 bg-gray-50/50">
+              <Link
+                href={`/demandas/${viewingDemanda.id}/editar`}
+                className="text-xs text-brand-600 hover:underline flex items-center gap-1 font-medium"
+              >
+                Abrir página completa
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setViewingDemanda(null)}
+                >
+                  Fechar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const d = viewingDemanda;
+                    setViewingDemanda(null);
+                    setEditingDemanda({ ...d });
+                  }}
+                >
+                  <Pencil className="h-4 w-4 mr-1.5" />
+                  Editar Demanda
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
