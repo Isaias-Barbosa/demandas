@@ -28,6 +28,7 @@ export default function NovaDemandaPage() {
   const requestedTipo = searchParams.get('tipo');
 
   const [loading, setLoading] = useState(false);
+  const [loadingTipos, setLoadingTipos] = useState(true);
   const [tiposDisponiveis, setTiposDisponiveis] = useState<
     Pick<TipoDemanda, 'slug' | 'nome' | 'colunas'>[]
   >(DEFAULT_TIPOS_DEMANDAS.map((tipo) => ({ ...tipo, colunas: [] })));
@@ -54,6 +55,7 @@ export default function NovaDemandaPage() {
   useEffect(() => {
     async function loadTipos() {
       try {
+        setLoadingTipos(true);
         const supabase = createClient();
         const {
           data: { user },
@@ -118,6 +120,8 @@ export default function NovaDemandaPage() {
           'Erro ao carregar as abas importadas: ' +
             (err.message || 'Erro desconhecido')
         );
+      } finally {
+        setLoadingTipos(false);
       }
     }
 
@@ -180,16 +184,47 @@ export default function NovaDemandaPage() {
       return { column, key: columnKeys[index], field };
     });
   })();
-  const additionalColumns = importedColumnFields.filter(({ field }) => !field);
 
   const getImportedValue = ({
     key,
     field,
-  }: (typeof importedColumnFields)[number]) => {
+  }: {
+    key: string;
+    field: (typeof importedColumnFields)[number]['field'];
+  }) => {
+    if (customFields[key] !== undefined) {
+      return customFields[key];
+    }
     if (field) {
       return formData[field] || '';
     }
-    return customFields[key] || '';
+    return '';
+  };
+  const updateImportedField = (
+    key: string,
+    field: (typeof importedColumnFields)[number]['field'],
+    value: string
+  ) => {
+    setCustomFields((current) => ({ ...current, [key]: value }));
+
+    if (!field) {
+      return;
+    }
+
+    if (field === 'status') {
+      const normalized = value.toLowerCase();
+      const status: DemandaStatus = normalized.includes('andamento') || normalized.includes('progresso')
+        ? 'Em Andamento'
+        : normalized.includes('conclu') || normalized.includes('feito') || normalized.includes('finaliz')
+          ? 'Concluída'
+          : normalized.includes('cancel')
+            ? 'Cancelada'
+            : 'Pendente';
+      setFormData((current) => ({ ...current, status }));
+      return;
+    }
+
+    setFormData((current) => ({ ...current, [field]: value }));
   };
 
   const validate = () => {
@@ -290,6 +325,7 @@ export default function NovaDemandaPage() {
                 label="Aba de Destino *"
                 id="tipo"
                 value={formData.tipo}
+                disabled={loadingTipos}
                 onChange={(e) => {
                   setFormData({ ...formData, tipo: e.target.value });
                   setCustomFields({});
@@ -301,6 +337,37 @@ export default function NovaDemandaPage() {
               />
             </div>
 
+            {loadingTipos ? (
+              <p className="text-sm text-gray-500">Carregando campos da planilha...</p>
+            ) : importedColumnFields.length > 0 ? (
+              <div className="space-y-4 border-t border-gray-100 pt-5">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Campos da planilha
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Os campos abaixo correspondem às colunas importadas para esta aba.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {importedColumnFields.map(({ column, key, field }, index) => (
+                    <Input
+                      key={`${key}-${index}`}
+                      label={column}
+                      id={`sheet-field-${index}`}
+                      type={field === 'data_criacao' ? 'date' : 'text'}
+                      value={getImportedValue({ key, field })}
+                      onChange={(e) =>
+                        updateImportedField(key, field, e.target.value)
+                      }
+                      error={field === 'titulo' ? errors.titulo : undefined}
+                      required={field === 'titulo' || field === 'data_criacao'}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Linha 1: Data e Demanda */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -424,33 +491,7 @@ export default function NovaDemandaPage() {
               }
             />
 
-            {additionalColumns.length > 0 && (
-              <div className="space-y-4 border-t border-gray-100 pt-5">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Campos da planilha
-                  </h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Preencha os campos personalizados importados para esta aba.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {additionalColumns.map(({ column, key }, index) => (
-                    <Input
-                      key={`${key}-${index}`}
-                      label={column}
-                      id={`custom-field-${index}`}
-                      value={customFields[key] || ''}
-                      onChange={(e) =>
-                        setCustomFields((current) => ({
-                          ...current,
-                          [key]: e.target.value,
-                        }))
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
+              </>
             )}
 
             {/* Botões de Ação */}
@@ -463,7 +504,7 @@ export default function NovaDemandaPage() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" loading={loading}>
+              <Button type="submit" loading={loading} disabled={loadingTipos}>
                 <Save className="h-4 w-4 mr-1.5" />
                 Criar Demanda
               </Button>
