@@ -79,11 +79,19 @@ export default function DashboardPage() {
     }
   }
 
+  const demandasCorretivas = demandas.filter((d) => !d.tipo || d.tipo === 'corretivas');
+  const demandasCorretivasEvolutivas = demandas.filter(
+    (d) => !d.tipo || d.tipo === 'corretivas' || d.tipo === 'evolutivas'
+  );
+  const demandasParaGraficoStatus = demandas.filter((d) =>
+    ['corretivas', 'evolutivas', 'gdm-stis'].includes(d.tipo)
+  );
+
   // Estatísticas dos cards
-  const totalDemandas = demandas.length;
-  const pendentesCount = demandas.filter((d) => d.status === 'Pendente').length;
-  const emAndamentoCount = demandas.filter((d) => d.status === 'Em Andamento').length;
-  const concluidasCount = demandas.filter((d) => d.status === 'Concluída').length;
+  const totalDemandas = demandasCorretivasEvolutivas.length;
+  const pendentesCount = demandasCorretivas.filter((d) => d.status === 'Pendente').length;
+  const emAndamentoCount = demandasCorretivas.filter((d) => d.status === 'Em Andamento').length;
+  const concluidasCount = demandasCorretivas.filter((d) => d.status === 'Concluída').length;
 
   // 1. Dados para PieChart (Demandas por Status)
   const statusCounts: Record<DemandaStatus, number> = {
@@ -92,7 +100,7 @@ export default function DashboardPage() {
     'Concluída': 0,
     'Cancelada': 0,
   };
-  demandas.forEach((d) => {
+  demandasParaGraficoStatus.forEach((d) => {
     if (statusCounts[d.status] !== undefined) {
       statusCounts[d.status]++;
     }
@@ -106,20 +114,57 @@ export default function DashboardPage() {
     }))
     .filter((item) => item.value > 0);
 
-  // 2. Dados para BarChart (Demandas por Responsável)
-  const responsavelMap: Record<string, number> = {};
-  demandas.forEach((d) => {
-    const nome = d.responsavel?.trim() || 'Não Atribuído';
-    responsavelMap[nome] = (responsavelMap[nome] || 0) + 1;
-  });
+  // 2. Dados para BarCharts (Demandas por Responsável), separados por categoria
+  const getResponsavelData = (items: Demanda[]) => {
+    const responsavelMap: Record<string, number> = {};
+    items.forEach((d) => {
+      const nome = d.responsavel?.trim() || 'Não Atribuído';
+      responsavelMap[nome] = (responsavelMap[nome] || 0) + 1;
+    });
 
-  const barData = Object.entries(responsavelMap)
-    .map(([nome, total]) => ({
-      responsavel: nome,
-      total,
-    }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8); // Top 8 responsáveis
+    return Object.entries(responsavelMap)
+      .map(([nome, total]) => ({ responsavel: nome, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+  };
+
+  const getEvolutivasResponsavelData = (items: Demanda[]) => {
+    const responsavelMap = new Map<string, { responsavel: string; total: number }>();
+
+    items.forEach((demanda) => {
+      Object.entries(demanda.dados || {}).forEach(([column, value]) => {
+        const normalizedColumn = column
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        if (!normalizedColumn.includes('analista') && !normalizedColumn.includes('desenvolvedor')) {
+          return;
+        }
+
+        const nome = String(value ?? '').trim();
+        if (!nome) return;
+
+        const key = nome.toLocaleLowerCase('pt-BR');
+        const current = responsavelMap.get(key);
+        responsavelMap.set(key, {
+          responsavel: current?.responsavel || nome,
+          total: (current?.total || 0) + 1,
+        });
+      });
+    });
+
+    return Array.from(responsavelMap.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+  };
+
+  const responsavelCharts = [
+    { title: 'Corretivas', data: getResponsavelData(demandasCorretivas) },
+    {
+      title: 'Evolutivas',
+      data: getEvolutivasResponsavelData(demandas.filter((d) => d.tipo === 'evolutivas')),
+    },
+  ];
 
   // 3. Dados para AreaChart (Evolução Mensal)
   const monthlyMap: Record<string, number> = {};
@@ -285,8 +330,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Grid dos 2 primeiros gráficos (Pie e Bar) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Gráfico de Demandas por Status */}
+      <div>
         {/* Gráfico 1: PieChart - Demandas por Status */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -342,56 +387,61 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Gráfico 2: BarChart - Demandas por Responsável (horizontal) */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-brand-500" />
-              Demandas por Responsável
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {barData.length === 0 ? (
-              <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
-                Nenhuma demanda cadastrada para exibir.
-              </div>
-            ) : (
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={barData}
-                    layout="vertical"
-                    margin={{ top: 10, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <YAxis
-                      dataKey="responsavel"
-                      type="category"
-                      width={110}
-                      tick={{ fontSize: 12 }}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [`${value} demandas`, 'Total']}
-                      contentStyle={{
-                        backgroundColor: '#ffffff',
-                        borderColor: '#e5e7eb',
-                        borderRadius: '0.5rem',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Bar
-                      dataKey="total"
-                      name="Demandas"
-                      fill={BRAND_COLOR}
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      </div>
+
+      {/* Gráficos de Demandas por Responsável, separados por categoria */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {responsavelCharts.map(({ title, data }) => (
+          <Card key={title}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-brand-500" />
+                Demandas por Responsável — {title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.length === 0 ? (
+                <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
+                  Nenhuma demanda de {title.toLowerCase()} cadastrada para exibir.
+                </div>
+              ) : (
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data}
+                      layout="vertical"
+                      margin={{ top: 10, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <YAxis
+                        dataKey="responsavel"
+                        type="category"
+                        width={110}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`${value} demandas`, 'Total']}
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          borderColor: '#e5e7eb',
+                          borderRadius: '0.5rem',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Bar
+                        dataKey="total"
+                        name="Demandas"
+                        fill={BRAND_COLOR}
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Gráfico 3: AreaChart - Evolução Mensal (largura total) */}

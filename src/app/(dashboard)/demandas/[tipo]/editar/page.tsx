@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/Button';
 export default function EditarDemandaPage() {
   const router = useRouter();
   const params = useParams();
-  const id = params?.id as string;
+  const id = params?.tipo as string;
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

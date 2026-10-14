@@ -223,23 +223,31 @@ export default function DemandaPorTipoPage() {
     try {
       setSavingEdit(true);
       const supabase = createClient();
+      const updateData = tipo === 'corretivas'
+        ? {
+            titulo: editingDemanda.titulo,
+            gri: editingDemanda.gri || null,
+            atividade: editingDemanda.atividade || null,
+            responsavel: editingDemanda.responsavel || null,
+            status: editingDemanda.status,
+            rdm_link: editingDemanda.rdm_link || null,
+            prioridade: editingDemanda.prioridade,
+            data_criacao: editingDemanda.data_criacao,
+            data_conclusao: editingDemanda.data_conclusao || null,
+            descricao: editingDemanda.descricao || null,
+            observacoes: editingDemanda.observacoes || null,
+            dados: editingDemanda.dados || {},
+            updated_at: new Date().toISOString(),
+          }
+        : {
+            titulo: editingDemanda.titulo,
+            status: editingDemanda.status,
+            dados: editingDemanda.dados || {},
+            updated_at: new Date().toISOString(),
+          };
       const { error } = await supabase
         .from('demandas')
-        .update({
-          titulo: editingDemanda.titulo,
-          gri: editingDemanda.gri || null,
-          atividade: editingDemanda.atividade || null,
-          responsavel: editingDemanda.responsavel || null,
-          status: editingDemanda.status,
-          rdm_link: editingDemanda.rdm_link || null,
-          prioridade: editingDemanda.prioridade,
-          data_criacao: editingDemanda.data_criacao,
-          data_conclusao: editingDemanda.data_conclusao || null,
-          descricao: editingDemanda.descricao || null,
-          observacoes: editingDemanda.observacoes || null,
-          dados: editingDemanda.dados || {},
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', editingDemanda.id);
 
       if (error) throw error;
@@ -256,6 +264,42 @@ export default function DemandaPorTipoPage() {
     }
   }
 
+  function updateCustomField(column: string, value: string) {
+    if (!editingDemanda) return;
+
+    const normalizedColumn = column.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const titleColumn =
+      activeColumns.find((col) => {
+        const normalized = col.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return ['demanda', 'titulo', 'tarefa', 'nome', 'assunto'].some((key) =>
+          normalized.includes(key)
+        );
+      }) || activeColumns[0];
+    const nextDemanda = {
+      ...editingDemanda,
+      dados: { ...editingDemanda.dados, [column]: value },
+    };
+
+    if (column === titleColumn) {
+      nextDemanda.titulo = value;
+    }
+
+    if (normalizedColumn.includes('status') || normalizedColumn.includes('situacao') || normalizedColumn.includes('estado')) {
+      const normalizedValue = value.toLowerCase();
+      if (normalizedValue.includes('andamento') || normalizedValue.includes('progresso')) {
+        nextDemanda.status = 'Em Andamento';
+      } else if (normalizedValue.includes('conclu') || normalizedValue.includes('feito') || normalizedValue.includes('finaliz')) {
+        nextDemanda.status = 'Concluída';
+      } else if (normalizedValue.includes('cancel')) {
+        nextDemanda.status = 'Cancelada';
+      } else {
+        nextDemanda.status = 'Pendente';
+      }
+    }
+
+    setEditingDemanda(nextDemanda);
+  }
+
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return '-';
     try {
@@ -267,6 +311,13 @@ export default function DemandaPorTipoPage() {
 
   // Helper para renderizar célula dinâmica
   const renderCellContent = (demanda: Demanda, col: string) => {
+    if (tipo !== 'corretivas') {
+      const value = demanda.dados?.[col];
+      return value !== undefined && value !== null && value !== ''
+        ? String(value)
+        : '-';
+    }
+
     const colLower = col.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     if (colLower.includes('data')) {
@@ -452,7 +503,7 @@ export default function DemandaPorTipoPage() {
                       </th>
                     ))}
                     {/* Coluna Status explícita caso não esteja em activeColumns */}
-                    {!activeColumns.some((c) => c.toLowerCase().includes('status')) && (
+                    {tipo === 'corretivas' && !activeColumns.some((c) => c.toLowerCase().includes('status')) && (
                       <th scope="col" className="px-4 py-3.5 whitespace-nowrap">
                         Status
                       </th>
@@ -475,7 +526,7 @@ export default function DemandaPorTipoPage() {
                       ))}
 
                       {/* Status se não estava em activeColumns */}
-                      {!activeColumns.some((c) => c.toLowerCase().includes('status')) && (
+                      {tipo === 'corretivas' && !activeColumns.some((c) => c.toLowerCase().includes('status')) && (
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <span
                             className={cn(
@@ -746,111 +797,127 @@ export default function DemandaPorTipoPage() {
             </div>
 
             <form onSubmit={handleSaveEdit} className="p-6 space-y-4 overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Data *"
-                  id="edit-data"
-                  type="date"
-                  value={editingDemanda.data_criacao || ''}
-                  onChange={(e) =>
-                    setEditingDemanda({ ...editingDemanda, data_criacao: e.target.value })
-                  }
-                  required
-                />
+              {tipo === 'corretivas' ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Data *"
+                      id="edit-data"
+                      type="date"
+                      value={editingDemanda.data_criacao || ''}
+                      onChange={(e) =>
+                        setEditingDemanda({ ...editingDemanda, data_criacao: e.target.value })
+                      }
+                      required
+                    />
 
-                <Select
-                  label="Status"
-                  id="edit-status"
-                  value={editingDemanda.status}
-                  onChange={(e) =>
-                    setEditingDemanda({
-                      ...editingDemanda,
-                      status: e.target.value as DemandaStatus,
-                    })
-                  }
-                  options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
-                />
-              </div>
+                    <Select
+                      label="Status"
+                      id="edit-status"
+                      value={editingDemanda.status}
+                      onChange={(e) =>
+                        setEditingDemanda({
+                          ...editingDemanda,
+                          status: e.target.value as DemandaStatus,
+                        })
+                      }
+                      options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+                    />
+                  </div>
 
-              <Input
-                label="Demanda / Título *"
-                id="edit-titulo"
-                value={editingDemanda.titulo}
-                onChange={(e) =>
-                  setEditingDemanda({ ...editingDemanda, titulo: e.target.value })
-                }
-                required
-              />
+                  <Input
+                    label="Demanda / Título *"
+                    id="edit-titulo"
+                    value={editingDemanda.titulo}
+                    onChange={(e) =>
+                      setEditingDemanda({ ...editingDemanda, titulo: e.target.value })
+                    }
+                    required
+                  />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="GRI"
-                  id="edit-gri"
-                  value={editingDemanda.gri || ''}
-                  onChange={(e) =>
-                    setEditingDemanda({
-                      ...editingDemanda,
-                      gri: e.target.value,
-                    })
-                  }
-                  placeholder="Código GRI"
-                />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="GRI"
+                      id="edit-gri"
+                      value={editingDemanda.gri || ''}
+                      onChange={(e) =>
+                        setEditingDemanda({
+                          ...editingDemanda,
+                          gri: e.target.value,
+                        })
+                      }
+                      placeholder="Código GRI"
+                    />
 
-                <Input
-                  label="Atividade"
-                  id="edit-atividade"
-                  value={editingDemanda.atividade || ''}
-                  onChange={(e) =>
-                    setEditingDemanda({
-                      ...editingDemanda,
-                      atividade: e.target.value,
-                    })
-                  }
-                  placeholder="Nome da atividade"
-                />
-              </div>
+                    <Input
+                      label="Atividade"
+                      id="edit-atividade"
+                      value={editingDemanda.atividade || ''}
+                      onChange={(e) =>
+                        setEditingDemanda({
+                          ...editingDemanda,
+                          atividade: e.target.value,
+                        })
+                      }
+                      placeholder="Nome da atividade"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Responsável"
-                  id="edit-responsavel"
-                  value={editingDemanda.responsavel || ''}
-                  onChange={(e) =>
-                    setEditingDemanda({
-                      ...editingDemanda,
-                      responsavel: e.target.value,
-                    })
-                  }
-                  placeholder="Nome do responsável"
-                />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Responsável"
+                      id="edit-responsavel"
+                      value={editingDemanda.responsavel || ''}
+                      onChange={(e) =>
+                        setEditingDemanda({
+                          ...editingDemanda,
+                          responsavel: e.target.value,
+                        })
+                      }
+                      placeholder="Nome do responsável"
+                    />
 
-                <Input
-                  label="RDM Link"
-                  id="edit-rdm-link"
-                  value={editingDemanda.rdm_link || ''}
-                  onChange={(e) =>
-                    setEditingDemanda({
-                      ...editingDemanda,
-                      rdm_link: e.target.value,
-                    })
-                  }
-                  placeholder="https://... ou código RDM"
-                />
-              </div>
+                    <Input
+                      label="RDM Link"
+                      id="edit-rdm-link"
+                      value={editingDemanda.rdm_link || ''}
+                      onChange={(e) =>
+                        setEditingDemanda({
+                          ...editingDemanda,
+                          rdm_link: e.target.value,
+                        })
+                      }
+                      placeholder="https://... ou código RDM"
+                    />
+                  </div>
 
-              <Textarea
-                label="Descrição / Observações"
-                id="edit-descricao"
-                value={editingDemanda.descricao || ''}
-                onChange={(e) =>
-                  setEditingDemanda({
-                    ...editingDemanda,
-                    descricao: e.target.value,
-                  })
-                }
-                rows={2}
-                placeholder="Detalhes ou anotações..."
-              />
+                  <Textarea
+                    label="Descrição / Observações"
+                    id="edit-descricao"
+                    value={editingDemanda.descricao || ''}
+                    onChange={(e) =>
+                      setEditingDemanda({
+                        ...editingDemanda,
+                        descricao: e.target.value,
+                      })
+                    }
+                    rows={2}
+                    placeholder="Detalhes ou anotações..."
+                  />
+                </>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {activeColumns.map((column, index) => (
+                    <Input
+                      key={`${column}-${index}`}
+                      label={column}
+                      id={`edit-custom-${index}`}
+                      value={String(editingDemanda.dados?.[column] ?? '')}
+                      onChange={(e) => updateCustomField(column, e.target.value)}
+                    />
+                  ))}
+                </div>
+              )}
 
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
                 <Button

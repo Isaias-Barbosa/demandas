@@ -279,20 +279,22 @@ export default function ImportarExcelPage() {
       const finalName = targetName || selectedSheet || 'Demandas';
 
       // 1. Salvar ou atualizar metadados da aba em tipos_demandas
-      try {
-        await supabase
-          .from('tipos_demandas')
-          .upsert(
-            {
-              user_id: user.id,
-              slug: finalSlug,
-              nome: finalName,
-              colunas: headers,
-            },
-            { onConflict: 'user_id,slug' }
-          );
-      } catch (errMeta) {
-        console.warn('Aviso ao salvar tipos_demandas (criando se necessário):', errMeta);
+      const { error: tipoError } = await supabase
+        .from('tipos_demandas')
+        .upsert(
+          {
+            user_id: user.id,
+            slug: finalSlug,
+            nome: finalName,
+            colunas: headers,
+          },
+          { onConflict: 'user_id,slug' }
+        );
+
+      if (tipoError) {
+        throw new Error(
+          `Não foi possível salvar a aba da planilha no banco. Execute a migração supabase/migrations/20261013215429_fix_import_schema.sql no Supabase. Detalhe: ${tipoError.message}`
+        );
       }
 
       // 2. Mapeamento inteligente para colunas padrão
@@ -423,8 +425,12 @@ export default function ImportarExcelPage() {
         targetName: finalName,
       });
 
-      if (successCount > 0) {
+      if (successCount > 0 && errorCount === 0) {
         toast.success(`${successCount} demandas importadas para a aba "${finalName}"!`);
+      } else if (successCount > 0) {
+        toast.error(
+          `Importação parcial: ${successCount} demandas importadas e ${errorCount} com erro.`
+        );
       } else {
         toast.error('Nenhuma demanda foi importada com sucesso.');
       }
