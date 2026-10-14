@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [loading, setLoading] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
 
   // Form states
   const [name, setName] = useState('');
@@ -78,13 +79,20 @@ export default function LoginPage() {
           router.push('/dashboard');
           router.refresh();
         } else {
-          toast.success('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-          setMode('login');
+          setConfirmationEmail(email.trim());
         }
       }
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Ocorreu um erro inesperado. Tente novamente.';
+      const errorStatus =
+        typeof err === 'object' && err !== null && 'status' in err ? err.status : undefined;
+      const isRateLimited =
+        errorStatus === 429 ||
+        (err instanceof Error && /rate limit|too many requests/i.test(err.message));
+      const errorMessage = isRateLimited
+        ? 'Muitas tentativas de cadastro ou envio de e-mail. Aguarde alguns minutos antes de tentar novamente. Se continuar, verifique os limites de e-mail em Authentication > Rate Limits no Supabase.'
+        : err instanceof Error
+          ? err.message
+          : 'Ocorreu um erro inesperado. Tente novamente.';
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -139,6 +147,39 @@ export default function LoginPage() {
       {/* Lado Direito - Formulário de Autenticação */}
       <div className="flex flex-col justify-center items-center px-4 py-12 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-sm border border-gray-100">
+          {confirmationEmail ? (
+            <div className="space-y-6 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+                <CheckCircle2 className="h-9 w-9 text-green-600" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                  Conta cadastrada com sucesso!
+                </h2>
+                <p className="text-sm leading-6 text-gray-600">
+                  Por favor, acesse seu e-mail cadastrado para confirmar o cadastro.
+                </p>
+                <p className="flex items-center justify-center gap-2 break-all pt-2 font-medium text-brand-600">
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  {confirmationEmail}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Se a mensagem não aparecer, confira também a pasta de spam.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmationEmail('');
+                  setMode('login');
+                }}
+                className="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              >
+                Voltar para entrar
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Mobile Header */}
           <div className="flex flex-col items-center text-center lg:hidden">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-white mb-3">
@@ -298,6 +339,8 @@ export default function LoginPage() {
               </p>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

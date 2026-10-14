@@ -1,36 +1,62 @@
-# 📊 Demandas — do Excel para uma visão clara
+<div align="center">
 
-Um painel para transformar planilhas de demandas em informação organizada, pesquisável e fácil de acompanhar.
+# 📊 Demandas
 
-Importe abas de Excel, acompanhe o andamento das solicitações e veja os principais indicadores em um único lugar — sem perder as colunas específicas de cada equipe.
+### Sua operação, sem perder nenhuma linha.
 
-> **Menos caça a informação. Mais clareza sobre o que precisa acontecer.**
+Planilhas chegam cheias de informação. O **Demandas** transforma cada aba em um espaço de trabalho claro: importe, organize, acompanhe e descubra o que pede atenção.
 
-## ✨ O que você encontra por aqui
+<br />
 
-- **Dashboard com indicadores:** total de demandas de Corretivas e Evolutivas; pendências, itens em andamento e conclusões de Corretivas; e visão de status de Corretivas, Evolutivas e GDM STIs.
-- **Gráficos por responsável:** Corretivas agrupadas pelo campo de responsável; Evolutivas agrupadas pelos campos Analista e Desenvolvedor.
-- **Importação de Excel:** leitura de arquivos `.xlsx` e `.xls`, seleção de abas e escolha da linha de cabeçalho.
-- **Colunas dinâmicas:** cada aba mantém seus próprios campos e valores, inclusive nas telas de visualização e edição.
-- **Busca, filtros e paginação:** para localizar demandas por texto e acompanhar seus status.
-- **Exportação de dados:** gere arquivos com as informações selecionadas.
-- **Acesso protegido:** autenticação Supabase e políticas de segurança por usuário (RLS).
+`CORRETIVAS` &nbsp; · &nbsp; `EVOLUTIVAS` &nbsp; · &nbsp; `GDM STIs` &nbsp; · &nbsp; `SUAS CATEGORIAS`
 
-## 🧰 Tecnologias
+<br />
 
-| Camada | Tecnologias |
+**Menos caça à planilha. Mais clareza para fazer acontecer.**
+
+</div>
+
+---
+
+## 🪄 Uma planilha entra. Uma visão de trabalho sai.
+
+O Dashboard de Demandas reúne solicitações, campos próprios de cada equipe e indicadores em um único lugar. As colunas da planilha são preservadas, para que os dados continuem fazendo sentido depois da importação.
+
+### O que você pode fazer
+
+- 📥 **Importar Excel** — envie arquivos `.xlsx` ou `.xls`, escolha uma aba e indique a linha de cabeçalho.
+- 🧩 **Manter campos da equipe** — categorias personalizadas exibem e permitem editar os próprios campos da planilha.
+- 🔎 **Encontrar mais rápido** — pesquise, filtre por status e navegue pelos registros paginados.
+- 📈 **Acompanhar o panorama** — consulte indicadores, distribuição de status e evolução mensal.
+- 👥 **Entender a distribuição** — veja responsáveis de Corretivas e acompanhe Analista e Desenvolvedor em Evolutivas.
+- 📤 **Levar os dados com você** — exporte as informações selecionadas.
+- 🔐 **Trabalhar com acesso protegido** — autenticação e políticas de acesso por usuário via Supabase RLS.
+
+## 📊 Como ler o dashboard
+
+| Indicador | O que considera |
 | --- | --- |
-| Aplicação | Next.js 14, React 18, TypeScript |
-| Interface | Tailwind CSS, Lucide React, Sonner |
+| **Total de demandas** | Corretivas + Evolutivas |
+| **Pendentes, Em Andamento e Concluídas** | Demandas de Corretivas |
+| **Demandas por Status** | Corretivas + Evolutivas + GDM STIs |
+| **Responsáveis — Corretivas** | Campo `responsavel` |
+| **Responsáveis — Evolutivas** | Campos `Analista` e `Desenvolvedor` |
+
+## 🧰 A caixa de ferramentas
+
+| Camada | Tecnologia |
+| --- | --- |
+| Aplicação | Next.js 14 · React 18 · TypeScript |
+| Interface | Tailwind CSS · Lucide React · Sonner |
 | Gráficos | Recharts |
 | Planilhas | SheetJS (`xlsx`) |
-| Backend e autenticação | Supabase, PostgreSQL |
+| Autenticação e banco | Supabase · PostgreSQL |
 
-## 🚀 Comece em poucos passos
+## 🚀 De zero ao painel
 
-### Pré-requisitos
+### Antes de começar
 
-- Node.js e npm
+- Node.js e npm instalados
 - Um projeto no [Supabase](https://supabase.com/)
 
 ### 1. Instale as dependências
@@ -39,84 +65,82 @@ Importe abas de Excel, acompanhe o andamento das solicitações e veja os princi
 npm install
 ```
 
-### 2. Configure o Supabase
+### 2. Conecte o Supabase
 
-Crie um arquivo `.env.local` na raiz, usando `.env.local.example` como modelo:
+Copie `.env.local.example` para `.env.local` na raiz do projeto e preencha com os dados do seu projeto:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
 ```
 
-Os valores estão em **Project Settings → API** no painel do Supabase. Use a chave pública/anon; nunca coloque uma `service_role` no código do navegador ou neste arquivo.
+Você encontra esses valores em **Supabase → Project Settings → API**. Não use uma chave `service_role` no navegador nem em variáveis `NEXT_PUBLIC_*`.
 
 ### 3. Prepare o banco
 
-No **SQL Editor** do painel Supabase:
+Abra o **SQL Editor** do Supabase:
 
-- **Projeto novo:** execute `supabase/schema.sql`.
-- **Banco existente:** execute, em ordem, os arquivos de `supabase/migrations/` para adicionar estruturas que estiverem faltando. As migrações incluídas corrigem campos usados pela importação e pela classificação das demandas.
+- **Banco novo:** execute `supabase/schema.sql`.
+- **Banco existente:** execute os arquivos de `supabase/migrations/` em ordem cronológica.
 
-O schema configura tabelas, índices, políticas RLS e atualização automática de `updated_at`. Revise o projeto selecionado no painel antes de executar SQL.
+O schema inicial define as tabelas, índices, políticas RLS e atualização automática de `updated_at`. Confira o projeto selecionado antes de executar qualquer script SQL.
 
-### 4. Inicie a aplicação
+### 4. Acenda o painel
 
 ```bash
 npm run dev
 ```
 
-Abra [http://localhost:3000](http://localhost:3000).
+Abra [http://localhost:3000](http://localhost:3000), crie uma conta ou entre no sistema — e pronto.
 
-## 📥 Importando uma planilha
+## 📥 Rota rápida: importar uma planilha
 
-1. Entre no sistema com sua conta.
-2. Acesse **Importar** e selecione um arquivo `.xlsx` ou `.xls`.
-3. Escolha a aba que deseja importar.
-4. Informe se os cabeçalhos estão na primeira ou na segunda linha.
-5. Confira os dados e inicie a importação.
+```text
+Importar arquivo → Escolher aba → Definir cabeçalho → Confirmar → Acompanhar
+```
 
-Os nomes das colunas são preservados para exibição e edição. O sistema também reconhece alguns campos comuns — por exemplo, título, data e status — para alimentar os dados gerais da demanda.
+1. Acesse **Importar** e selecione um arquivo `.xlsx` ou `.xls`.
+2. Escolha a aba que deseja trazer para o painel.
+3. Indique se os nomes das colunas estão na primeira ou na segunda linha.
+4. Confirme a importação e abra a categoria criada.
 
-## 🗂️ Categorias e indicadores
+O sistema preserva os nomes e valores das colunas. Quando possível, reconhece também campos comuns, como título, data e status.
 
-- **Corretivas:** tabela e formulário padrão; seus dados alimentam os cards de status do dashboard.
-- **Evolutivas:** tabela e edição baseadas nas colunas da planilha; no gráfico por responsável, são considerados **Analista** e **Desenvolvedor**.
-- **GDM STIs:** exibe os campos importados e participa do gráfico consolidado de status.
-- **Total do dashboard:** soma Corretivas e Evolutivas.
-
-## 🧪 Comandos disponíveis
-
-| Comando | Ação |
-| --- | --- |
-| `npm run dev` | Inicia o servidor de desenvolvimento |
-| `npm run build` | Gera a versão de produção |
-| `npm run start` | Inicia a versão de produção já compilada |
-| `npm run lint` | Executa o lint configurado pelo Next.js |
-| `npx tsc --noEmit` | Verifica os tipos TypeScript |
-
-## 🧭 Estrutura do projeto
+## 🧭 Navegue pelo código
 
 ```text
 src/
 ├── app/
-│   ├── (dashboard)/       # Dashboard, demandas, importar e exportar
-│   ├── auth/callback/     # Callback de autenticação
-│   └── login/             # Acesso à aplicação
-├── components/            # Componentes compartilhados e UI
+│   ├── (dashboard)/          # Dashboard, demandas, importar e exportar
+│   ├── auth/callback/        # Retorno da autenticação Supabase
+│   └── login/                # Entrada e cadastro
+├── components/               # Navegação e componentes de interface
 └── lib/
-    ├── supabase/          # Clientes Supabase para navegador e servidor
-    └── types.ts           # Tipos e opções de demandas
+    ├── supabase/             # Clientes para navegador e servidor
+    └── types.ts              # Tipos e opções de domínio
 supabase/
-├── migrations/            # Ajustes incrementais do banco
-└── schema.sql             # Schema inicial
+├── migrations/               # Atualizações incrementais do banco
+└── schema.sql                # Estrutura inicial
 ```
 
-## 🔐 Segurança
+## 🧪 Comandos de bordo
 
-As tabelas de dados usam **Row Level Security (RLS)** para restringir o acesso às informações do usuário autenticado. Mantenha as políticas habilitadas e nunca compartilhe chaves privadas ou credenciais no repositório.
+| Comando | Ação |
+| --- | --- |
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run build` | Gera a versão otimizada para produção |
+| `npm run start` | Executa a versão já compilada |
+| `npm run lint` | Executa o lint configurado pelo Next.js |
+| `npx tsc --noEmit` | Verifica os tipos TypeScript |
+
+## 🔒 Seus dados, suas demandas
+
+As tabelas de demandas e categorias usam **Row Level Security (RLS)** para limitar o acesso aos registros do usuário autenticado. Mantenha as políticas habilitadas e não publique credenciais privadas no repositório.
 
 ---
 
-<p align="center">
-  Feito para deixar a gestão de demandas mais simples — uma planilha de cada vez. ✨
-</p>
+<div align="center">
+
+**Cada demanda no lugar certo. Cada próximo passo mais visível.** ✨
+
+</div>
