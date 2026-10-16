@@ -161,3 +161,7 @@ A lista e os cinco indicadores incluem RDMs atribuídas ao usuário ou acompanha
 Os cinco indicadores ficam abaixo dos cards existentes. Total inclui todas as RDMs retornadas. Agrupamento por nome de status: canceladas, aprovadas, execução/andamento, aguardando/criadas/abertas/pendentes/fechar RPI. Status diferentes continuam visíveis na tabela e no total, sem serem classificados artificialmente nos outros quatro cards. Adapte `src/lib/jira/model.ts` ao workflow corporativo quando necessário.
 
 Validação local: `node --test tests/jira.cjs`, `npx tsc --noEmit` e `npm run build`. A validação real exige credenciais Jira e o Supabase configurado; não há dados de demonstração apresentados como reais.
+
+### Exportar RDMs para Excel
+
+Em **Exportar Excel**, escolha **RDMs do Jira**, selecione as colunas e opcionalmente um status. O download faz uma nova consulta autenticada ao Jira e exporta as RDMs atribuídas ou acompanhadas, respeitando projeto/tipos do perfil. O XLSX contém datas como células de data, autofiltro e hyperlinks no código e no link do Jira. Nenhuma credencial é exportada. A exportação de Demandas continua disponível no mesmo seletor.

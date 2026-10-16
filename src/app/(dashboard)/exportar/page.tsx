@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/client';
 import { STATUS_OPTIONS } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { RdmExcelExport } from '@/components/RdmExcelExport';
 
 interface ExportField {
   id: string;
@@ -36,6 +37,7 @@ const EXPORT_FIELDS: ExportField[] = [
 ];
 
 export default function ExportarExcelPage() {
+  const [source, setSource] = useState<'demandas' | 'rdms'>('demandas');
   const [selectedFields, setSelectedFields] = useState<string[]>(
     EXPORT_FIELDS.map((f) => f.id)
   );
@@ -181,13 +183,22 @@ export default function ExportarExcelPage() {
       {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Exportar Demandas para Excel
+          Exportar para Excel
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           Configure os campos e filtros para gerar seu arquivo de planilha personalizado.
         </p>
       </div>
 
+      <div className="space-y-2">
+        <label htmlFor="export-source" className="block text-sm font-medium">Dados para exportar</label>
+        <select id="export-source" value={source} onChange={e => setSource(e.target.value as 'demandas' | 'rdms')} disabled={exporting} className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm">
+          <option value="demandas">Demandas</option>
+          <option value="rdms">RDMs do Jira</option>
+        </select>
+      </div>
+      <div hidden={source !== 'rdms'}>{source === 'rdms' && <RdmExcelExport />}</div>
+      <div hidden={source !== 'demandas'}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Painel Esquerdo: Seleção de Campos e Filtros */}
         <div className="md:col-span-2 space-y-6">
@@ -345,6 +356,7 @@ export default function ExportarExcelPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );
