@@ -13,7 +13,7 @@ export async function GET() {
     if (!data) return NextResponse.json({ connected: false, rdms: [] });
     const config = data.config as JiraConfig, token = decrypt(data.token_encrypted);
     const types = config.issueTypes.split(',').map(s => s.trim()).filter(Boolean);
-    const jql = `assignee = currentUser() AND issuetype in (${types.map(quote).join(',')})${config.project ? ` AND project = ${quote(config.project)}` : ''} ORDER BY created DESC`;
+    const jql = `(assignee = currentUser() OR watcher = currentUser()) AND issuetype in (${types.map(quote).join(',')})${config.project ? ` AND project = ${quote(config.project)}` : ''} ORDER BY created DESC`;
     const rdms: Rdm[] = []; let nextPageToken: string | undefined;
     const seen = new Set<string>();
     do {

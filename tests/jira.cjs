@@ -49,19 +49,19 @@ function route(db, jira) {
     '@/lib/jira/server': { ...server, decrypt: () => 'token', jira },
   });
 }
-test('RDM route enforces authenticated ownership, currentUser and complete pagination', async () => {
+test('RDM route enforces authenticated ownership, assignee/watcher scope and complete pagination', async () => {
   let calls = 0;
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
     from: name => { assert.equal(name, 'jira_integrations'); return {
       select: () => ({ eq: (field, id) => {
         assert.equal(field, 'user_id'); assert.equal(id, 'user-1');
-        return { maybeSingle: async () => ({ data: { config, token_encrypted: 'encrypted' } }) };
+        return { maybeSingle: async () => ({ data: { config: { ...config, project: 'RDM' }, token_encrypted: 'encrypted' } }) };
       } }),
     }; },
   };
   const api = route(db, async (c, token, path, body) => {
-    assert.equal(path, 'search/jql'); assert.match(body.jql, /assignee = currentUser\(\)/);
+    assert.equal(path, 'search/jql'); assert.equal(body.jql, '(assignee = currentUser() OR watcher = currentUser()) AND issuetype in ("RDM") AND project = "RDM" ORDER BY created DESC');
     assert.match(body.jql, /issuetype in \("RDM"\)/);
     calls++;
     if (calls === 2) assert.equal(body.nextPageToken, 'page2');
