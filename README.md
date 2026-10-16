@@ -144,3 +144,18 @@ As tabelas de demandas e categorias usam **Row Level Security (RLS)** para limit
 **Cada demanda no lugar certo. Cada próximo passo mais visível.** ✨
 
 </div>
+
+## Integração Jira Cloud por usuário
+
+1. Aplique `supabase/migrations/20261016190000_jira_integrations.sql` no Supabase do ambiente. A tabela tem RLS: cada usuário acessa somente sua própria integração.
+2. Gere uma chave com `openssl rand -hex 32` e configure `JIRA_ENCRYPTION_KEY` nas variáveis **do servidor** (local e hospedagem). Não use prefixo `NEXT_PUBLIC_`. Guarde a mesma chave entre deploys; se trocar/perder a chave, os usuários precisarão reconectar o Jira.
+3. Publique a aplicação e acesse **Meu perfil**. Informe URL `https://empresa.atlassian.net`, e-mail corporativo e API token Atlassian **sem escopos**. O endpoint direto por tenant desta implementação não suporta tokens com escopos. Senha/SSO corporativo não substituem o token. A política da empresa pode impedir tokens; nesse caso será necessário implementar OAuth 2.0 (3LO) com app autorizado pelo administrador.
+4. Configure os nomes exatos dos tipos de issue de mudança separados por vírgula (padrão: `RDM`), opcionalmente a chave do projeto e o ID `customfield_NNNNN` da classificação. O administrador Jira pode fornecer esses valores. A classificação não usa prioridade como substituto.
+
+A conexão valida `/rest/api/3/myself`. O servidor consulta `/rest/api/3/search/jql` com `assignee = currentUser()`, pagina todas as issues e só devolve dados de exibição. O token fica criptografado com AES-256-GCM no banco e nunca é retornado pela API da aplicação. Credenciais não são guardadas em localStorage. Requisições autenticadas ao Jira são feitas apenas no servidor, sem cache ou redirecionamentos, para tenants HTTPS `*.atlassian.net`. Jira Data Center, domínios personalizados e tokens com escopos não são suportados nesta versão.
+
+**RDMs** contém filtro pelos status reais do Jira, código com link e prévia textual da descrição (conteúdo ADF, sem renderizar HTML/anexos), com **Ver no Jira** e **Fechar**. Fechar apenas fecha a prévia; não altera o ticket. **Atualizar** e F5 fazem nova consulta, incluindo RDMs criadas/reatribuídas após a indexação do Jira. Não há assinatura de eventos/websocket; a busca pode apresentar atraso de indexação do próprio Jira.
+
+Os cinco indicadores ficam abaixo dos cards existentes. Total inclui todas as RDMs retornadas. Agrupamento por nome de status: canceladas, aprovadas, execução/andamento, aguardando/criadas/abertas/pendentes/fechar RPI. Status diferentes continuam visíveis na tabela e no total, sem serem classificados artificialmente nos outros quatro cards. Adapte `src/lib/jira/model.ts` ao workflow corporativo quando necessário.
+
+Validação local: `node --test tests/jira.cjs`, `npx tsc --noEmit` e `npm run build`. A validação real exige credenciais Jira e o Supabase configurado; não há dados de demonstração apresentados como reais.
