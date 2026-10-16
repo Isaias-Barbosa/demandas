@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
@@ -17,6 +18,8 @@ export function Header({ user }: HeaderProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const getPageTitle = (path: string) => {
+    if (path === '/rdms') return 'RDMs';
+    if (path === '/perfil') return 'Meu perfil';
     if (path === '/dashboard') return 'Dashboard';
     if (path === '/demandas/nova') return 'Nova Demanda';
     if (path.startsWith('/demandas')) return 'Demandas';
@@ -75,7 +78,7 @@ export function Header({ user }: HeaderProps) {
       {/* Lado Direito: Informações do Usuário + Logout */}
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Perfil do Usuário */}
-        <div className="flex items-center gap-2.5">
+        <Link href="/perfil" aria-label="Meu perfil" className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-600 font-bold text-sm ring-2 ring-brand-100 flex-shrink-0 shadow-sm">
             {userInitial}
           </div>
@@ -87,7 +90,7 @@ export function Header({ user }: HeaderProps) {
               {user.email}
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="h-6 w-px bg-gray-200" aria-hidden="true" />
 

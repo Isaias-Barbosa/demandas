@@ -1,4 +1,5 @@
 'use client';
+import { JiraRdms } from '@/components/JiraRdms';
 
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
@@ -329,6 +330,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <JiraRdms summaryOnly />
 
       {/* Gráfico de Demandas por Status */}
       <div>

@@ -170,6 +170,8 @@ export function Sidebar() {
               )}
             </div>
 
+            <Link href="/rdms" className={pathname === '/rdms' ? 'sidebar-link-active' : 'sidebar-link'}><ClipboardList className="h-5 w-5" /><span>RDMs</span></Link>
+            <Link href="/perfil" className={pathname === '/perfil' ? 'sidebar-link-active' : 'sidebar-link'}><Layers className="h-5 w-5" /><span>Meu perfil</span></Link>
             {/* Nova Demanda */}
             <Link
               href="/demandas/nova"
