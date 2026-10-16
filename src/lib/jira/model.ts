@@ -12,6 +12,6 @@ export function bucket(status: string) {
   if (/cancel/.test(s)) return 'Cancelados';
   if (/aprov|approved/.test(s)) return 'Aprovadas';
   if (/execu|andamento|in progress/.test(s)) return 'Em Execução';
-  if (/aguard|criada|created|abert|open|pend|fechar rpi/.test(s)) return 'Aguardando';
+  if (/aguard|criada|created|abert|open|pend|fechar rpi|preencher\s+rpi/.test(s)) return 'Aguardando';
   return 'Outros';
 }

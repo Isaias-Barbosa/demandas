@@ -27,7 +27,7 @@ test('JQL escapes literals and classification supports select fields', () => {
   assert.equal(server.fieldText(null), '—');
 });
 test('buckets preserve workflow examples', () => {
-  for (const status of ['Aguardando RPI', 'Criada', 'Fechar Rpi']) assert.equal(model.bucket(status), 'Aguardando');
+  for (const status of ['Aguardando RPI', 'Criada', 'Fechar Rpi', 'Preencher RPI', 'PREENCHER RPI']) assert.equal(model.bucket(status), 'Aguardando');
   assert.equal(model.bucket('Em Execução'), 'Em Execução');
   assert.equal(model.bucket('Aprovada'), 'Aprovadas');
   assert.equal(model.bucket('Cancelado'), 'Cancelados');
