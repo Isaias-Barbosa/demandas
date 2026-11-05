@@ -4,7 +4,7 @@ export interface JiraConfig {
 }
 export interface Rdm {
   key: string; summary: string; type: string; status: string;
-  classification: string; created: string; description: string; url: string;
+  assignee?: string; classification: string; created: string; description: string; url: string;
 }
 export const defaultConfig: JiraConfig = { site: '', email: '', project: '', issueTypes: 'RDM', classificationField: '' };
 export function bucket(status: string) {
