@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { bucket, Rdm } from '@/lib/jira/model';
 
-export function JiraRdms({ summaryOnly = false }: { summaryOnly?: boolean }) {
+export interface JiraSnapshot { rdms: Rdm[]; loading: boolean; connected: boolean; error: string; }
+export function JiraRdms({ summaryOnly = false, onSnapshot }: { summaryOnly?: boolean; onSnapshot?: (snapshot: JiraSnapshot) => void }) {
   const [rdms, setRdms] = useState<Rdm[]>([]);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,9 @@ export function JiraRdms({ summaryOnly = false }: { summaryOnly?: boolean }) {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    onSnapshot?.({ rdms, loading, connected, error });
+  }, [onSnapshot, rdms, loading, connected, error]);
   useEffect(() => {
     if (!selected) return;
     closeRef.current?.focus();
