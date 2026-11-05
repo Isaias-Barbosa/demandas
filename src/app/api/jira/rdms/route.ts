@@ -17,11 +17,11 @@ export async function GET() {
     const rdms: Rdm[] = []; let nextPageToken: string | undefined;
     const seen = new Set<string>();
     do {
-      const result = await jira(config, token, 'search/jql', { jql, maxResults: 100, fields: ['summary','issuetype','status','created','description', ...(config.classificationField ? [config.classificationField] : [])], ...(nextPageToken ? { nextPageToken } : {}) });
+      const result = await jira(config, token, 'search/jql', { jql, maxResults: 100, fields: ['assignee','summary','issuetype','status','created','description', ...(config.classificationField ? [config.classificationField] : [])], ...(nextPageToken ? { nextPageToken } : {}) });
       if (!Array.isArray(result.issues)) throw new JiraError('Resposta inesperada do Jira.', 502);
       for (const issue of result.issues) {
         const f = issue.fields;
-        rdms.push({ key: issue.key, summary: f.summary, type: f.issuetype?.name || '—', status: f.status?.name || '—', classification: fieldText(f[config.classificationField]), created: f.created, description: fieldText(f.description), url: `${config.site}/browse/${encodeURIComponent(issue.key)}` });
+        rdms.push({ key: issue.key, summary: f.summary, assignee: f.assignee?.displayName || 'Não atribuído', type: f.issuetype?.name || '—', status: f.status?.name || '—', classification: fieldText(f[config.classificationField]), created: f.created, description: fieldText(f.description), url: `${config.site}/browse/${encodeURIComponent(issue.key)}` });
       }
       nextPageToken = result.isLast ? undefined : result.nextPageToken;
       if (nextPageToken && seen.has(nextPageToken)) throw new JiraError('Paginação inválida do Jira. Tente novamente.', 502);
