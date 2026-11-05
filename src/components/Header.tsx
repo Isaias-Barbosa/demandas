@@ -21,11 +21,8 @@ export function Header({ user }: HeaderProps) {
     if (path === '/rdms') return 'RDMs';
     if (path === '/perfil') return 'Meu perfil';
     if (path === '/dashboard') return 'Dashboard';
-    if (path === '/demandas/nova') return 'Nova Demanda';
-    if (path.startsWith('/demandas')) return 'Demandas';
-    if (path === '/importar') return 'Importar Excel';
     if (path === '/exportar') return 'Exportar Excel';
-    return 'Dashboard de Demandas';
+    return 'Dashboard de RDMs';
   };
 
   const handleToggleSidebar = () => {
