@@ -1,5 +1,5 @@
 'use client';
-import { JiraRdms } from '@/components/JiraRdms';
+import { JiraRdms, JiraSnapshot } from '@/components/JiraRdms';
 
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
@@ -29,20 +29,17 @@ import {
   Legend,
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
-import { Demanda, DemandaStatus } from '@/lib/types';
+import type { Rdm } from '@/lib/jira/model';
+import { Demanda } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 
-const STATUS_COLORS_MAP: Record<DemandaStatus, string> = {
-  'Pendente': '#f59e0b',
-  'Em Andamento': '#3b82f6',
-  'Concluída': '#10b981',
-  'Cancelada': '#ef4444',
-};
+const CHART_COLORS = ['#003641', '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const BRAND_COLOR = '#003641';
 
 export default function DashboardPage() {
   const [demandas, setDemandas] = useState<Demanda[]>([]);
+  const [jiraData, setJiraData] = useState<JiraSnapshot>({ rdms: [], loading: true, connected: false, error: '' });
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -84,119 +81,47 @@ export default function DashboardPage() {
   const demandasCorretivasEvolutivas = demandas.filter(
     (d) => !d.tipo || d.tipo === 'corretivas' || d.tipo === 'evolutivas'
   );
-  const demandasParaGraficoStatus = demandas.filter((d) =>
-    ['corretivas', 'evolutivas', 'gdm-stis'].includes(d.tipo)
-  );
-
   // Estatísticas dos cards
   const totalDemandas = demandasCorretivasEvolutivas.length;
   const pendentesCount = demandasCorretivas.filter((d) => d.status === 'Pendente').length;
   const emAndamentoCount = demandasCorretivas.filter((d) => d.status === 'Em Andamento').length;
   const concluidasCount = demandasCorretivas.filter((d) => d.status === 'Concluída').length;
 
-  // 1. Dados para PieChart (Demandas por Status)
-  const statusCounts: Record<DemandaStatus, number> = {
-    'Pendente': 0,
-    'Em Andamento': 0,
-    'Concluída': 0,
-    'Cancelada': 0,
-  };
-  demandasParaGraficoStatus.forEach((d) => {
-    if (statusCounts[d.status] !== undefined) {
-      statusCounts[d.status]++;
-    }
-  });
-
-  const pieData = (Object.keys(statusCounts) as DemandaStatus[])
-    .map((status) => ({
-      name: status,
-      value: statusCounts[status],
-      color: STATUS_COLORS_MAP[status],
-    }))
-    .filter((item) => item.value > 0);
-
-  // 2. Dados para BarCharts (Demandas por Responsável), separados por categoria
-  const getResponsavelData = (items: Demanda[]) => {
-    const responsavelMap: Record<string, number> = {};
-    items.forEach((d) => {
-      const nome = d.responsavel?.trim() || 'Não Atribuído';
-      responsavelMap[nome] = (responsavelMap[nome] || 0) + 1;
+  // Os gráficos abaixo dos cards usam exclusivamente o mesmo resultado do Jira.
+  const rdms = jiraData.loading || jiraData.error || !jiraData.connected ? [] : jiraData.rdms;
+  const chartMessage = jiraData.loading ? 'Consultando RDMs no Jira…'
+    : jiraData.error ? 'Não foi possível carregar as RDMs. Tente novamente acima.'
+    : !jiraData.connected ? 'Conecte sua conta Jira no perfil para exibir os gráficos.'
+    : 'Nenhuma RDM encontrada para exibir.';
+  const statusCounts = new Map<string, number>();
+  rdms.forEach(r => statusCounts.set(r.status, (statusCounts.get(r.status) || 0) + 1));
+  const pieData = Array.from(statusCounts, ([name, value], index) => ({
+    name, value, color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const getResponsavelData = (items: Rdm[]) => {
+    const counts = new Map<string, number>();
+    items.forEach(r => {
+      const name = r.assignee?.trim() || 'Não atribuído';
+      counts.set(name, (counts.get(name) || 0) + 1);
     });
-
-    return Object.entries(responsavelMap)
-      .map(([nome, total]) => ({ responsavel: nome, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
+    return Array.from(counts, ([responsavel, total]) => ({ responsavel, total }))
+      .sort((a, b) => b.total - a.total).slice(0, 8);
   };
-
-  const getEvolutivasResponsavelData = (items: Demanda[]) => {
-    const responsavelMap = new Map<string, { responsavel: string; total: number }>();
-
-    items.forEach((demanda) => {
-      Object.entries(demanda.dados || {}).forEach(([column, value]) => {
-        const normalizedColumn = column
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
-        if (!normalizedColumn.includes('analista') && !normalizedColumn.includes('desenvolvedor')) {
-          return;
-        }
-
-        const nome = String(value ?? '').trim();
-        if (!nome) return;
-
-        const key = nome.toLocaleLowerCase('pt-BR');
-        const current = responsavelMap.get(key);
-        responsavelMap.set(key, {
-          responsavel: current?.responsavel || nome,
-          total: (current?.total || 0) + 1,
-        });
-      });
-    });
-
-    return Array.from(responsavelMap.values())
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
-  };
-
   const responsavelCharts = [
-    { title: 'Corretivas', data: getResponsavelData(demandasCorretivas) },
-    {
-      title: 'Evolutivas',
-      data: getEvolutivasResponsavelData(demandas.filter((d) => d.tipo === 'evolutivas')),
-    },
+    { title: 'Corretivas', data: getResponsavelData(rdms.filter(r => normalize(r.classification).includes('corretiva'))) },
+    { title: 'Evolutivas', data: getResponsavelData(rdms.filter(r => normalize(r.classification).includes('evolutiva'))) },
   ];
-
-  // 3. Dados para AreaChart (Evolução Mensal)
-  const monthlyMap: Record<string, number> = {};
-  demandas.forEach((d) => {
-    if (!d.data_criacao) return;
-    try {
-      const monthKey = d.data_criacao.substring(0, 7); // 'YYYY-MM'
-      monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + 1;
-    } catch {
-      // Ignorar data inválida
-    }
+  const monthlyMap = new Map<string, number>();
+  rdms.forEach(r => {
+    if (!/^\d{4}-\d{2}-\d{2}T/.test(r.created) || Number.isNaN(Date.parse(r.created))) return;
+    const month = r.created.slice(0, 7);
+    monthlyMap.set(month, (monthlyMap.get(month) || 0) + 1);
   });
-
-  const areaData = Object.keys(monthlyMap)
-    .sort()
-    .map((monthKey) => {
-      let formattedMonth = monthKey;
-      try {
-        const dateObj = parseISO(`${monthKey}-01`);
-        formattedMonth = format(dateObj, 'MMM/yy', { locale: ptBR });
-        formattedMonth =
-          formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1);
-      } catch {
-        formattedMonth = monthKey;
-      }
-      return {
-        mes: formattedMonth,
-        rawMonth: monthKey,
-        total: monthlyMap[monthKey],
-      };
-    });
+  const areaData = Array.from(monthlyMap.keys()).sort().map(month => ({
+    mes: format(parseISO(month + '-01'), 'MMM/yy', { locale: ptBR }),
+    total: monthlyMap.get(month)!,
+  }));
 
   if (loading || !isMounted) {
     return (
@@ -331,22 +256,22 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <JiraRdms summaryOnly />
+      <JiraRdms summaryOnly onSnapshot={setJiraData} />
 
-      {/* Gráfico de Demandas por Status */}
+      {/* Gráfico de RDMs por Status */}
       <div>
-        {/* Gráfico 1: PieChart - Demandas por Status */}
+        {/* Gráfico 1: PieChart - RDMs por Status */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <PieChartIcon className="h-4 w-4 text-brand-500" />
-              Demandas por Status
+              RDMs por Status
             </CardTitle>
           </CardHeader>
           <CardContent>
             {pieData.length === 0 ? (
               <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
-                Nenhuma demanda cadastrada para exibir.
+                {chartMessage}
               </div>
             ) : (
               <div className="h-[300px] w-full">
@@ -372,7 +297,7 @@ export default function DashboardPage() {
                     </Pie>
                     <Tooltip
                       formatter={(value: number, name: string) => [
-                        `${value} demandas`,
+                        `${value} RDMs`,
                         name,
                       ]}
                       contentStyle={{
@@ -392,20 +317,20 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* Gráficos de Demandas por Responsável, separados por categoria */}
+      {/* Gráficos de RDMs por Responsável, separados por categoria */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {responsavelCharts.map(({ title, data }) => (
           <Card key={title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-brand-500" />
-                Demandas por Responsável — {title}
+                RDMs por Responsável — {title}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {data.length === 0 ? (
                 <div className="flex h-[300px] items-center justify-center text-sm text-gray-500">
-                  Nenhuma demanda de {title.toLowerCase()} cadastrada para exibir.
+                  {jiraData.loading || jiraData.error || !jiraData.connected ? chartMessage : `Nenhuma RDM ${title.toLowerCase()} encontrada. Verifique a classificação configurada no perfil.`}
                 </div>
               ) : (
                 <div className="h-[300px] w-full">
@@ -424,7 +349,7 @@ export default function DashboardPage() {
                         tick={{ fontSize: 12 }}
                       />
                       <Tooltip
-                        formatter={(value: number) => [`${value} demandas`, 'Total']}
+                        formatter={(value: number) => [`${value} RDMs`, 'Total']}
                         contentStyle={{
                           backgroundColor: '#ffffff',
                           borderColor: '#e5e7eb',
@@ -434,7 +359,7 @@ export default function DashboardPage() {
                       />
                       <Bar
                         dataKey="total"
-                        name="Demandas"
+                        name="RDMs"
                         fill={BRAND_COLOR}
                         radius={[0, 4, 4, 0]}
                       />
@@ -452,13 +377,13 @@ export default function DashboardPage() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-brand-500" />
-            Evolução Mensal
+            Evolução Mensal das RDMs
           </CardTitle>
         </CardHeader>
         <CardContent>
           {areaData.length === 0 ? (
             <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
-              Nenhum dado mensal disponível para exibir.
+              {chartMessage}
             </div>
           ) : (
             <div className="h-[280px] w-full">
@@ -477,7 +402,7 @@ export default function DashboardPage() {
                   <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number) => [`${value} demandas`, 'Total']}
+                    formatter={(value: number) => [`${value} RDMs`, 'Total']}
                     contentStyle={{
                       backgroundColor: '#ffffff',
                       borderColor: '#e5e7eb',
@@ -488,7 +413,7 @@ export default function DashboardPage() {
                   <Area
                     type="monotone"
                     dataKey="total"
-                    name="Demandas Criadas"
+                    name="RDMs Criadas"
                     stroke={BRAND_COLOR}
                     strokeWidth={2}
                     fillOpacity={1}
