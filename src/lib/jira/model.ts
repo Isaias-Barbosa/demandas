@@ -8,9 +8,9 @@ export interface Rdm {
 }
 export const defaultConfig: JiraConfig = { site: '', email: '', project: '', issueTypes: 'RDM', classificationField: '' };
 export function bucket(status: string) {
-  const s = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const s = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (/cancel/.test(s)) return 'Cancelados';
-  if (/aprov|approved|^executado com sucesso$|^executado parcialmente$/.test(s)) return 'Aprovadas';
+  if (/aprov|approved|^executad[ao] com sucesso$|^executad[ao] parcialmente$/.test(s)) return 'Aprovadas';
   if (/execu|andamento|in progress/.test(s)) return 'Em Execução';
   if (/aguard|criada|created|abert|open|pend|fechar rpi|preencher\s+rpi/.test(s)) return 'Aguardando';
   return 'Outros';
