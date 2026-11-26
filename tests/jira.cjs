@@ -89,7 +89,7 @@ function cardsRoute(db, jira) {
     '@/lib/jira/server': { ...server, decrypt: () => 'token', jira },
   });
 }
-test('Cards route scopes to reporter only and reads the space field with a default fallback', async () => {
+test('Cards route scopes to reporter, skips RDM keys and reads the space field with a default fallback', async () => {
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
     from: name => { assert.equal(name, 'jira_integrations'); return {
@@ -104,11 +104,15 @@ test('Cards route scopes to reporter only and reads the space field with a defau
     assert.equal(body.jql, 'reporter = currentUser() ORDER BY created DESC');
     assert.ok(!body.jql.includes('issuetype') && !body.jql.includes('project'));
     assert.ok(body.fields.includes('customfield_10072'));
-    return { issues: [{ key: 'BUG-1', fields: { summary: 'Erro', issuetype: { name: 'Bug' }, status: { name: 'Homologação' }, project: { name: 'OpenFin' }, reporter: { displayName: 'Você' }, created: '2026-10-16T12:00:00Z', description: 'detalhes', customfield_10072: { value: 'OpenFin' } } }], isLast: true };
+    return { issues: [
+      { key: 'BUG-1', fields: { summary: 'Erro', issuetype: { name: 'Bug' }, status: { name: 'Homologação' }, project: { name: 'OpenFin' }, reporter: { displayName: 'Você' }, created: '2026-10-16T12:00:00Z', description: 'detalhes', customfield_10072: { value: 'OpenFin' } } },
+      { key: 'RDM-9', fields: { summary: 'RDM que nao deve aparecer', status: { name: 'Criada' } } },
+    ], isLast: true };
   });
   const response = await api.GET(), data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.cards.length, 1);
+  assert.equal(data.cards[0].key, 'BUG-1');
   assert.equal(data.cards[0].space, 'OpenFin');
   assert.equal(data.cards[0].status, 'Homologação');
   assert.equal(data.cards[0].type, 'Bug');

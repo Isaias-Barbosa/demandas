@@ -167,7 +167,7 @@ export function JiraCards() {
             )}
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            Todas as issues que você relatou no Jira, em qualquer projeto.
+            Issues que você relatou no Jira, em qualquer projeto — exceto RDMs.
           </p>
         </div>
         <Button onClick={load} loading={loading}>
@@ -285,8 +285,9 @@ export function JiraCards() {
 
       <p className="hint">
         {updated ? `Última consulta: ${new Date(updated).toLocaleString('pt-BR')}. ` : ''}
-        O espaço vem do campo configurado no perfil. Atualizar consulta o Jira novamente; novos cards
-        podem levar alguns minutos para aparecer por causa da indexação do Jira.
+        Cards com chave iniciada em RDM são ignorados. O espaço vem do campo configurado no perfil.
+        Atualizar consulta o Jira novamente; novos cards podem levar alguns minutos para aparecer
+        por causa da indexação do Jira.
       </p>
 
       {selected && (

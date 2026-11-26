@@ -164,7 +164,7 @@ Validação local: `node --test tests/jira.cjs`, `npx tsc --noEmit` e `npm run b
 
 ### Página Cards
 
-A página **Cards** consulta o Jira com `reporter = currentUser()` — somente issues que você relatou, em qualquer projeto, sem aplicar os filtros de tipo/projeto usados em RDMs. A tabela mostra tipo (com destaque para **Bug**), status (com destaque para **Homologação** e **Revisão**), espaço, projeto, relator e data, com filtros por status, tipo e espaço e busca textual.
+A página **Cards** consulta o Jira com `reporter = currentUser()` — somente issues que você relatou, em qualquer projeto, sem aplicar os filtros de tipo/projeto usados em RDMs. Cards com chave iniciada em `RDM` são descartados, para não misturar RDMs com os demais cards. A tabela mostra tipo (com destaque para **Bug**), status (com destaque para **Homologação** e **Revisão**), espaço, projeto, relator e data, com filtros por status, tipo e espaço e busca textual.
 
 O **espaço** é lido de um campo personalizado configurável em **Meu perfil** (`Campo de espaço`), com padrão `customfield_10072` — por exemplo, um valor `OpenFin`. O campo de classificação das RDMs continua independente (`customfield_10231` no seu ambiente). Integrações salvas antes da inclusão da configuração usam o padrão automaticamente, sem necessidade de migração.
 

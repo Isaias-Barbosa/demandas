@@ -5,6 +5,9 @@ import type { JiraCard, JiraConfig } from '@/lib/jira/model';
 
 export const dynamic = 'force-dynamic';
 
+// Cards destinam-se a issues que não são RDMs (chaves como RDM-123).
+const excludedKeyPrefix = 'RDM';
+
 export async function GET() {
   try {
     const db = createClient();
@@ -32,9 +35,11 @@ export async function GET() {
       });
       if (!Array.isArray(result.issues)) throw new JiraError('Resposta inesperada do Jira.', 502);
       for (const issue of result.issues) {
+        const key = String(issue.key ?? '').trim();
+        if (key.toUpperCase().startsWith(excludedKeyPrefix)) continue;
         const f = issue.fields;
         cards.push({
-          key: issue.key,
+          key,
           summary: f.summary,
           type: f.issuetype?.name || '—',
           status: f.status?.name || '—',
@@ -43,7 +48,7 @@ export async function GET() {
           reporter: f.reporter?.displayName || '—',
           created: f.created,
           description: fieldText(f.description),
-          url: `${config.site}/browse/${encodeURIComponent(issue.key)}`,
+          url: `${config.site}/browse/${encodeURIComponent(key)}`,
         });
       }
       nextPageToken = result.isLast ? undefined : result.nextPageToken;
