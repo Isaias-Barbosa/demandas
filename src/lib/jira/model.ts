@@ -1,12 +1,18 @@
 export interface JiraConfig {
   site: string; email: string; project: string; issueTypes: string;
-  classificationField: string;
+  classificationField: string; spaceField: string;
 }
 export interface Rdm {
   key: string; summary: string; type: string; status: string;
   assignee?: string; reporter?: string; classification: string; created: string; description: string; url: string;
 }
-export const defaultConfig: JiraConfig = { site: '', email: '', project: '', issueTypes: 'RDM', classificationField: '' };
+export interface JiraCard {
+  key: string; summary: string; type: string; status: string;
+  space: string; project: string; reporter?: string; created: string; description: string; url: string;
+}
+export const defaultConfig: JiraConfig = {
+  site: '', email: '', project: '', issueTypes: 'RDM', classificationField: '', spaceField: 'customfield_10072',
+};
 export function bucket(status: string) {
   const s = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (/cancel/.test(s)) return 'Cancelados';

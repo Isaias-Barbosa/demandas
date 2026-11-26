@@ -15,6 +15,7 @@ interface HeaderProps {
 const pages: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Visão geral das suas RDMs' },
   '/rdms': { title: 'RDMs', subtitle: 'Todas as mudanças do seu Jira' },
+  '/cards': { title: 'Cards', subtitle: 'Issues que você relatou no Jira' },
   '/perfil': { title: 'Meu perfil', subtitle: 'Dados da conta e integração com Jira' },
   '/exportar': { title: 'Exportar Excel', subtitle: 'Gere uma planilha com as suas RDMs' },
 };

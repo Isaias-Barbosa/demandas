@@ -10,12 +10,14 @@ import {
   X,
   UserRound,
   ArrowUpRight,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/rdms', label: 'RDMs', icon: ClipboardList },
+  { href: '/cards', label: 'Cards', icon: LayoutGrid },
   { href: '/perfil', label: 'Meu perfil', icon: UserRound },
   { href: '/exportar', label: 'Exportar Excel', icon: Download },
 ];

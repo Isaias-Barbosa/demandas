@@ -78,3 +78,44 @@ test('unauthenticated route never calls Jira or reads integrations', async () =>
   const api = route({ auth: { getUser: async () => ({ data: { user: null } }) }, from: () => assert.fail('unexpected DB read') }, () => assert.fail('unexpected Jira request'));
   assert.equal((await api.GET()).status, 401);
 });
+test('space field accepts customfield IDs and rejects bare numbers', () => {
+  assert.equal(server.validateConfig({ ...config, spaceField: 'customfield_10072' }).spaceField, 'customfield_10072');
+  assert.throws(() => server.validateConfig({ ...config, spaceField: '10072' }), /Espaço/);
+});
+function cardsRoute(db, jira) {
+  return load('src/app/api/jira/cards/route.ts', {
+    'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
+    '@/lib/supabase/server': { createClient: () => db },
+    '@/lib/jira/server': { ...server, decrypt: () => 'token', jira },
+  });
+}
+test('Cards route scopes to reporter only and reads the space field with a default fallback', async () => {
+  const db = {
+    auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
+    from: name => { assert.equal(name, 'jira_integrations'); return {
+      select: () => ({ eq: (field, id) => {
+        assert.equal(field, 'user_id'); assert.equal(id, 'user-1');
+        return { maybeSingle: async () => ({ data: { config: { ...config, spaceField: '' }, token_encrypted: 'encrypted' } }) };
+      } }),
+    }; },
+  };
+  const api = cardsRoute(db, async (c, token, path, body) => {
+    assert.equal(path, 'search/jql');
+    assert.equal(body.jql, 'reporter = currentUser() ORDER BY created DESC');
+    assert.ok(!body.jql.includes('issuetype') && !body.jql.includes('project'));
+    assert.ok(body.fields.includes('customfield_10072'));
+    return { issues: [{ key: 'BUG-1', fields: { summary: 'Erro', issuetype: { name: 'Bug' }, status: { name: 'Homologação' }, project: { name: 'OpenFin' }, reporter: { displayName: 'Você' }, created: '2026-10-16T12:00:00Z', description: 'detalhes', customfield_10072: { value: 'OpenFin' } } }], isLast: true };
+  });
+  const response = await api.GET(), data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.cards.length, 1);
+  assert.equal(data.cards[0].space, 'OpenFin');
+  assert.equal(data.cards[0].status, 'Homologação');
+  assert.equal(data.cards[0].type, 'Bug');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(JSON.stringify(data).includes('encrypted'), false);
+});
+test('Cards route rejects unauthenticated requests without calling Jira', async () => {
+  const api = cardsRoute({ auth: { getUser: async () => ({ data: { user: null } }) }, from: () => assert.fail('unexpected DB read') }, () => assert.fail('unexpected Jira request'));
+  assert.equal((await api.GET()).status, 401);
+});

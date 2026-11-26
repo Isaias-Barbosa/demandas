@@ -162,6 +162,12 @@ Os cinco indicadores ficam abaixo dos cards existentes. Total inclui todas as RD
 
 Validação local: `node --test tests/jira.cjs`, `npx tsc --noEmit` e `npm run build`. A validação real exige credenciais Jira e o Supabase configurado; não há dados de demonstração apresentados como reais.
 
+### Página Cards
+
+A página **Cards** consulta o Jira com `reporter = currentUser()` — somente issues que você relatou, em qualquer projeto, sem aplicar os filtros de tipo/projeto usados em RDMs. A tabela mostra tipo (com destaque para **Bug**), status (com destaque para **Homologação** e **Revisão**), espaço, projeto, relator e data, com filtros por status, tipo e espaço e busca textual.
+
+O **espaço** é lido de um campo personalizado configurável em **Meu perfil** (`Campo de espaço`), com padrão `customfield_10072` — por exemplo, um valor `OpenFin`. O campo de classificação das RDMs continua independente (`customfield_10231` no seu ambiente). Integrações salvas antes da inclusão da configuração usam o padrão automaticamente, sem necessidade de migração.
+
 ### Exportar RDMs para Excel
 
 Em **Exportar Excel**, escolha **RDMs do Jira**, selecione as colunas e opcionalmente um status. O download faz uma nova consulta autenticada ao Jira e exporta as RDMs atribuídas, acompanhadas ou relatadas por você, respeitando projeto/tipos do perfil. As colunas incluem **Responsável** e **Relator**. O XLSX contém datas como células de data, autofiltro e hyperlinks no código e no link do Jira. Nenhuma credencial é exportada. A exportação de Demandas continua disponível no mesmo seletor.

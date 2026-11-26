@@ -32,7 +32,7 @@ export default function PerfilPage() {
         const response = await fetch('/api/jira/config', { cache: 'no-store' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
-        if (data.config) setConfig(data.config);
+        if (data.config) setConfig({ ...defaultConfig, ...data.config });
         setConnected(data.connected);
         setDisplayName(data.displayName || '');
       } catch (e) {
@@ -168,7 +168,8 @@ export default function PerfilPage() {
                 ['email', 'E-mail corporativo do Jira', 'voce@empresa.com'],
                 ['project', 'Chave do projeto (opcional)', 'Ex.: MUD'],
                 ['issueTypes', 'Tipos de issue que representam RDMs', 'RDM, Mudança emergencial, Mudança normal'],
-                ['classificationField', 'Campo de classificação (opcional)', 'Ex.: customfield_10042'],
+                ['classificationField', 'Campo de classificação (opcional)', 'Ex.: customfield_10231'],
+                ['spaceField', 'Campo de espaço (opcional)', 'Ex.: customfield_10072'],
               ] as const).map(([field, label, placeholder]) => (
                 <Input
                   key={field}
@@ -185,8 +186,10 @@ export default function PerfilPage() {
 
             <p className="hint">
               Separe os tipos por vírgula, com os nomes exatos do Jira. Sem projeto, a consulta
-              busca em todos os projetos permitidos. Peça ao administrador o ID do campo de
-              classificação; sem ele, a coluna exibe “—”.
+              busca em todos os projetos permitidos. A classificação (padrão do seu ambiente:
+              customfield_10231) aparece em RDMs; o espaço usado em Cards vem do campo de espaço
+              (padrão: customfield_10072). Confirme os IDs com o administrador do Jira; sem o
+              campo, a coluna exibe “—”.
             </p>
 
             <div className="max-w-md">

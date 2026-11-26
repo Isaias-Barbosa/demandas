@@ -29,6 +29,7 @@ export function validateConfig(input: JiraConfig): JiraConfig {
   if (input.project && !/^[A-Z][A-Z0-9_]*$/i.test(input.project)) throw new JiraError('Chave de projeto inválida.');
   if (!input.issueTypes.trim()) throw new JiraError('Informe os tipos de issue que representam RDMs.');
   if (input.classificationField && !/^customfield_\d+$/.test(input.classificationField)) throw new JiraError('Classificação deve usar customfield_ seguido do número.');
+  if (input.spaceField && !/^customfield_\d+$/.test(input.spaceField)) throw new JiraError('Espaço deve usar customfield_ seguido do número.');
   return { ...input, site: url.origin };
 }
 export async function jira(config: JiraConfig, token: string, path: string, body?: unknown) {
