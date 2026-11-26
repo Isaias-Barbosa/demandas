@@ -30,9 +30,12 @@ test('buckets preserve workflow examples', () => {
   for (const status of ['Aguardando RPI', 'Criada', 'Fechar Rpi', 'Preencher RPI', 'PREENCHER RPI']) assert.equal(model.bucket(status), 'Aguardando');
   assert.equal(model.bucket('Em Execução'), 'Em Execução');
   assert.equal(model.bucket('Aprovada'), 'Aprovadas');
+  for (const status of ['Executada', 'Executadas', 'Executada com sucesso', 'Executada parcialmente', 'Executada com falha', 'Executadas com falha']) {
+    assert.equal(model.bucket(status), 'Aprovadas');
+  }
   assert.equal(model.bucket('Cancelado'), 'Cancelados');
   assert.equal(model.bucket('Concluída'), 'Outros');
-  for (const status of ['Criada', 'Aprovada', 'Em Execução', 'Cancelado', 'Concluída']) {
+  for (const status of ['Criada', 'Aprovada', 'Executada com falha', 'Em Execução', 'Cancelado', 'Concluída']) {
     assert.ok(model.STATUS_GROUPS.includes(model.bucket(status)));
   }
 });

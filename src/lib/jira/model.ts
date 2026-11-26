@@ -18,7 +18,7 @@ export type StatusGroup = typeof STATUS_GROUPS[number];
 export function bucket(status: string): StatusGroup {
   const s = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (/cancel/.test(s)) return 'Cancelados';
-  if (/aprov|approved|^executad[ao] com sucesso$|^executad[ao] parcialmente$/.test(s)) return 'Aprovadas';
+  if (/aprov|approved|^executad[ao]s?(?: com)? (?:sucesso|parcialmente|falha)$|^executad[ao]s?$/.test(s)) return 'Aprovadas';
   if (/execu|andamento|in progress/.test(s)) return 'Em Execução';
   if (/aguard|criada|created|abert|open|pend|fechar rpi|preencher\s+rpi/.test(s)) return 'Aguardando';
   return 'Outros';

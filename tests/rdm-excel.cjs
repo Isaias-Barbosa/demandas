@@ -38,13 +38,17 @@ test('filters RDMs by status groups and optional specific status', () => {
     { ...rdm, key: 'RDM-43', status: 'Aprovada' },
     { ...rdm, key: 'RDM-44', status: 'Cancelado' },
     { ...rdm, key: 'RDM-45', status: 'Concluída' },
+    { ...rdm, key: 'RDM-46', status: 'Executada' },
+    { ...rdm, key: 'RDM-47', status: 'Executada com falha' },
   ];
   const keys = (groups, status = '') => filterRdms(rows, groups, status).map((r) => r.key);
-  assert.deepEqual(keys([]), ['RDM-42', 'RDM-43', 'RDM-44', 'RDM-45']);
+  assert.deepEqual(keys([]), ['RDM-42', 'RDM-43', 'RDM-44', 'RDM-45', 'RDM-46', 'RDM-47']);
   assert.deepEqual(keys(['Aguardando']), ['RDM-42']);
-  assert.deepEqual(keys(['Aprovadas', 'Cancelados']), ['RDM-43', 'RDM-44']);
+  assert.deepEqual(keys(['Aprovadas', 'Cancelados']), ['RDM-43', 'RDM-44', 'RDM-46', 'RDM-47']);
   assert.deepEqual(keys(['Aguardando'], 'Criada'), ['RDM-42']);
   assert.deepEqual(keys(['Aguardando'], 'Aprovada'), []);
   assert.deepEqual(keys([], 'Cancelado'), ['RDM-44']);
+  assert.deepEqual(keys(['Aprovadas'], 'Executada com falha'), ['RDM-47']);
   assert.ok(model.STATUS_GROUPS.includes(model.bucket('Concluída')));
+  assert.ok(model.STATUS_GROUPS.includes(model.bucket('Executada com falha')));
 });

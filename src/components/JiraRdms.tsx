@@ -38,6 +38,7 @@ const summaryCards = [
 ] as const;
 
 function statusVariant(status: string): BadgeProps['variant'] {
+  if (/falha/i.test(status)) return 'danger';
   const group = bucket(status);
   if (group === 'Aprovadas') return 'success';
   if (group === 'Aguardando') return 'warning';
