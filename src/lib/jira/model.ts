@@ -13,7 +13,9 @@ export interface JiraCard {
 export const defaultConfig: JiraConfig = {
   site: '', email: '', project: '', issueTypes: 'RDM', classificationField: '', spaceField: 'customfield_10072',
 };
-export function bucket(status: string) {
+export const STATUS_GROUPS = ['Aprovadas', 'Aguardando', 'Em Execução', 'Cancelados', 'Outros'] as const;
+export type StatusGroup = typeof STATUS_GROUPS[number];
+export function bucket(status: string): StatusGroup {
   const s = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (/cancel/.test(s)) return 'Cancelados';
   if (/aprov|approved|^executad[ao] com sucesso$|^executad[ao] parcialmente$/.test(s)) return 'Aprovadas';

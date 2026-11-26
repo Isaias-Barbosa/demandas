@@ -32,6 +32,9 @@ test('buckets preserve workflow examples', () => {
   assert.equal(model.bucket('Aprovada'), 'Aprovadas');
   assert.equal(model.bucket('Cancelado'), 'Cancelados');
   assert.equal(model.bucket('Concluída'), 'Outros');
+  for (const status of ['Criada', 'Aprovada', 'Em Execução', 'Cancelado', 'Concluída']) {
+    assert.ok(model.STATUS_GROUPS.includes(model.bucket(status)));
+  }
 });
 test('Jira requests disable caching/redirects and translate auth errors', async () => {
   const original = global.fetch;

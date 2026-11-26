@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Rdm } from './model';
+import { bucket, type Rdm } from './model';
 export const RDM_EXPORT_FIELDS = [
   { id: 'key', label: 'RDM', width: 18 },
   { id: 'summary', label: 'Resumo', width: 60 },
@@ -12,6 +12,11 @@ export const RDM_EXPORT_FIELDS = [
   { id: 'url', label: 'Link no Jira', width: 60 },
 ] as const;
 export type RdmExportField = typeof RDM_EXPORT_FIELDS[number]['id'];
+export function filterRdms(rdms: Rdm[], groups: readonly string[], status: string) {
+  return rdms.filter(
+    (r) => (!groups.length || groups.includes(bucket(r.status))) && (!status || r.status === status)
+  );
+}
 export function rdmWorkbook(rdms: Rdm[], selected: RdmExportField[]) {
   const fields = RDM_EXPORT_FIELDS.filter(f => selected.includes(f.id));
   if (!fields.length) throw new Error('Selecione pelo menos uma coluna.');

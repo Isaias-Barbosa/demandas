@@ -1,18 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { AlertCircle, Columns3, Download, Filter, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import type { Rdm } from '@/lib/jira/model';
-import { RDM_EXPORT_FIELDS, type RdmExportField, rdmWorkbook } from '@/lib/jira/excel';
+import { bucket, STATUS_GROUPS, type Rdm, type StatusGroup } from '@/lib/jira/model';
+import {
+  filterRdms,
+  RDM_EXPORT_FIELDS,
+  type RdmExportField,
+  rdmWorkbook,
+} from '@/lib/jira/excel';
 
 export function RdmExcelExport() {
   const [rdms, setRdms] = useState<Rdm[]>([]);
   const [selected, setSelected] = useState<RdmExportField[]>(RDM_EXPORT_FIELDS.map((f) => f.id));
+  const [groups, setGroups] = useState<StatusGroup[]>([]);
   const [status, setStatus] = useState('');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,7 +57,7 @@ export function RdmExcelExport() {
       // Consulta novamente para incluir RDMs criadas/atualizadas após o carregamento.
       const data = await query();
       if (!data.connected) throw new Error('Conecte sua conta Jira no perfil.');
-      const rows = data.rdms.filter((r) => !status || r.status === status);
+      const rows = filterRdms(data.rdms, groups, status);
       if (!rows.length) throw new Error('Nenhuma RDM encontrada para este filtro.');
       XLSX.writeFile(rdmWorkbook(rows, selected), `rdms_${new Date().toISOString().slice(0, 10)}.xlsx`);
       toast.success(`${rows.length} RDMs exportadas com sucesso.`);
@@ -64,11 +70,25 @@ export function RdmExcelExport() {
     }
   }
 
-  const count = rdms.filter((r) => !status || r.status === status).length;
+  const count = filterRdms(rdms, groups, status).length;
   const disabled = loading || exporting;
-  const statuses = Array.from(new Set([...rdms.map((r) => r.status), ...(status ? [status] : [])])).sort((a, b) =>
-    a.localeCompare(b, 'pt-BR')
+  const statuses = useMemo(() => {
+    const values = new Set(rdms.map((r) => r.status));
+    if (status) values.add(status);
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [rdms, status]);
+  const statusOptions = useMemo(
+    () => statuses.filter((s) => !groups.length || groups.includes(bucket(s))),
+    [statuses, groups]
   );
+
+  useEffect(() => {
+    if (status && !statusOptions.includes(status)) setStatus('');
+  }, [status, statusOptions]);
+
+  function toggleGroup(group: StatusGroup) {
+    setGroups((prev) => (prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]));
+  }
 
   return (
     <div className="space-y-6">
@@ -139,12 +159,51 @@ export function RdmExcelExport() {
           </span>
           <div>
             <CardTitle>Filtro e download</CardTitle>
-            <CardDescription>Escolha o status e baixe a planilha.</CardDescription>
+            <CardDescription>Escolha os tipos de status, refine se quiser e baixe a planilha.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-5 pt-5">
+          <fieldset disabled={disabled}>
+            <legend className="field-label">Tipos de status</legend>
+            <div className="flex flex-wrap gap-4 text-sm font-medium text-brand-600">
+              <button
+                type="button"
+                className="hover:underline disabled:opacity-50"
+                onClick={() => setGroups([...STATUS_GROUPS])}
+              >
+                Marcar todos
+              </button>
+              <button
+                type="button"
+                className="text-slate-500 hover:underline disabled:opacity-50"
+                onClick={() => setGroups([])}
+              >
+                Limpar seleção
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {STATUS_GROUPS.map((group) => (
+                <label
+                  key={group}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50/60"
+                >
+                  <input
+                    type="checkbox"
+                    checked={groups.includes(group)}
+                    onChange={() => toggleGroup(group)}
+                    className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-300"
+                  />
+                  {group}
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Sem seleção, todos os tipos entram. Marque um ou mais para limitar a exportação.
+            </p>
+          </fieldset>
+
           <div className="max-w-sm">
-            <label htmlFor="rdm-export-status" className="field-label">Status</label>
+            <label htmlFor="rdm-export-status" className="field-label">Status específico (opcional)</label>
             <select
               id="rdm-export-status"
               className="field-control"
@@ -153,10 +212,13 @@ export function RdmExcelExport() {
               onChange={(e) => setStatus(e.target.value)}
             >
               <option value="">Todos os status</option>
-              {statuses.map((s) => (
+              {statusOptions.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
+            <p className="mt-2 text-xs text-slate-500">
+              Refina os tipos marcados acima; sem tipos marcados, filtra todos os status.
+            </p>
           </div>
 
           <div className="surface-soft flex flex-wrap items-center justify-between gap-3 p-4">
@@ -184,8 +246,9 @@ export function RdmExcelExport() {
           </div>
 
           <p className="hint">
-            O download consulta o Jira novamente e mantém o filtro escolhido. O código da RDM e a
-            coluna de link abrem o ticket no Jira.
+            O download consulta o Jira novamente e mantém os filtros escolhidos. Os tipos de status
+            usam o mesmo agrupamento dos cards do painel; um status específico apenas refina a seleção.
+            O código da RDM e a coluna de link abrem o ticket no Jira.
           </p>
         </CardContent>
       </Card>

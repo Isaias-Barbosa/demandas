@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 const ts = require('typescript');
 const fs = require('node:fs');
 const XLSX = require('xlsx');
-const js = ts.transpileModule(fs.readFileSync('src/lib/jira/excel.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-const mod = { exports: {} };
-new Function('require', 'module', 'exports', js)(require, mod, mod.exports);
-const { rdmWorkbook, RDM_EXPORT_FIELDS } = mod.exports;
+function load(file, overrides = {}) {
+  const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const mod = { exports: {} };
+  new Function('require', 'module', 'exports', js)((name) => overrides[name] || require(name), mod, mod.exports);
+  return mod.exports;
+}
+const model = load('src/lib/jira/model.ts');
+const { rdmWorkbook, RDM_EXPORT_FIELDS, filterRdms } = load('src/lib/jira/excel.ts', { './model': model });
 const rdm = { key: 'RDM-42', summary: '=1+1', type: 'Mudança Normal', status: 'Criada', assignee: 'Ana', reporter: 'Você', classification: 'Evolutiva', created: '2026-10-16T12:00:00Z', url: 'https://example.atlassian.net/browse/RDM-42', description: 'Private description' };
 test('XLSX roundtrip preserves headers, dates, links and literal summaries', () => {
   const book = rdmWorkbook([rdm], RDM_EXPORT_FIELDS.map(f => f.id));
@@ -27,4 +31,20 @@ test('exports only selected columns in table order, excludes description', () =>
   const sheet = rdmWorkbook([rdm], ['url','key']).Sheets.RDMs;
   assert.deepEqual(XLSX.utils.sheet_to_json(sheet, { header: 1 }), [['RDM','Link no Jira'], ['RDM-42',rdm.url]]);
   assert.throws(() => rdmWorkbook([rdm], []), /coluna/);
+});
+test('filters RDMs by status groups and optional specific status', () => {
+  const rows = [
+    rdm,
+    { ...rdm, key: 'RDM-43', status: 'Aprovada' },
+    { ...rdm, key: 'RDM-44', status: 'Cancelado' },
+    { ...rdm, key: 'RDM-45', status: 'Concluída' },
+  ];
+  const keys = (groups, status = '') => filterRdms(rows, groups, status).map((r) => r.key);
+  assert.deepEqual(keys([]), ['RDM-42', 'RDM-43', 'RDM-44', 'RDM-45']);
+  assert.deepEqual(keys(['Aguardando']), ['RDM-42']);
+  assert.deepEqual(keys(['Aprovadas', 'Cancelados']), ['RDM-43', 'RDM-44']);
+  assert.deepEqual(keys(['Aguardando'], 'Criada'), ['RDM-42']);
+  assert.deepEqual(keys(['Aguardando'], 'Aprovada'), []);
+  assert.deepEqual(keys([], 'Cancelado'), ['RDM-44']);
+  assert.ok(model.STATUS_GROUPS.includes(model.bucket('Concluída')));
 });
