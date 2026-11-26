@@ -3,6 +3,8 @@ import type { Rdm } from './model';
 export const RDM_EXPORT_FIELDS = [
   { id: 'key', label: 'RDM', width: 18 },
   { id: 'summary', label: 'Resumo', width: 60 },
+  { id: 'assignee', label: 'Responsável', width: 28 },
+  { id: 'reporter', label: 'Relator', width: 28 },
   { id: 'type', label: 'Tipo', width: 28 },
   { id: 'status', label: 'Status', width: 24 },
   { id: 'classification', label: 'Classificação', width: 24 },

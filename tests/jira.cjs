@@ -49,7 +49,7 @@ function route(db, jira) {
     '@/lib/jira/server': { ...server, decrypt: () => 'token', jira },
   });
 }
-test('RDM route enforces authenticated ownership, assignee/watcher scope and complete pagination', async () => {
+test('RDM route enforces authenticated ownership, assignee/watcher/reporter scope and complete pagination', async () => {
   let calls = 0;
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
@@ -61,14 +61,16 @@ test('RDM route enforces authenticated ownership, assignee/watcher scope and com
     }; },
   };
   const api = route(db, async (c, token, path, body) => {
-    assert.equal(path, 'search/jql'); assert.equal(body.jql, '(assignee = currentUser() OR watcher = currentUser()) AND issuetype in ("RDM") AND project = "RDM" ORDER BY created DESC');
+    assert.equal(path, 'search/jql'); assert.equal(body.jql, '(assignee = currentUser() OR watcher = currentUser() OR reporter = currentUser()) AND issuetype in ("RDM") AND project = "RDM" ORDER BY created DESC');
     assert.match(body.jql, /issuetype in \("RDM"\)/);
+    assert.ok(body.fields.includes('assignee') && body.fields.includes('reporter'));
     calls++;
     if (calls === 2) assert.equal(body.nextPageToken, 'page2');
-    return { issues: [{ key: `RDM-${calls}`, fields: { summary: 'Change', status: { name: 'Criada' }, issuetype: { name: 'RDM' }, created: '2026-10-16' } }], nextPageToken: calls === 1 ? 'page2' : undefined, isLast: calls === 2 };
+    return { issues: [{ key: `RDM-${calls}`, fields: { summary: 'Change', status: { name: 'Criada' }, issuetype: { name: 'RDM' }, assignee: { displayName: 'Ana' }, reporter: { displayName: 'Você' }, created: '2026-10-16' } }], nextPageToken: calls === 1 ? 'page2' : undefined, isLast: calls === 2 };
   });
   const response = await api.GET(), data = await response.json();
   assert.equal(response.status, 200); assert.equal(data.rdms.length, 2);
+  assert.equal(data.rdms[0].assignee, 'Ana'); assert.equal(data.rdms[0].reporter, 'Você');
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(JSON.stringify(data).includes('encrypted'), false);
 });

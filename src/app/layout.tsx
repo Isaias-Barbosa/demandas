@@ -6,8 +6,8 @@ import { Toaster } from 'sonner';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Dashboard de Demandas',
-  description: 'Gerencie suas demandas com eficiência',
+  title: 'RDMs | Painel de demandas',
+  description: 'Acompanhe as mudanças do Jira, indicadores e exportações em um só painel',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

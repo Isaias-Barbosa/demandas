@@ -13,15 +13,15 @@ export async function GET() {
     if (!data) return NextResponse.json({ connected: false, rdms: [] });
     const config = data.config as JiraConfig, token = decrypt(data.token_encrypted);
     const types = config.issueTypes.split(',').map(s => s.trim()).filter(Boolean);
-    const jql = `(assignee = currentUser() OR watcher = currentUser()) AND issuetype in (${types.map(quote).join(',')})${config.project ? ` AND project = ${quote(config.project)}` : ''} ORDER BY created DESC`;
+    const jql = `(assignee = currentUser() OR watcher = currentUser() OR reporter = currentUser()) AND issuetype in (${types.map(quote).join(',')})${config.project ? ` AND project = ${quote(config.project)}` : ''} ORDER BY created DESC`;
     const rdms: Rdm[] = []; let nextPageToken: string | undefined;
     const seen = new Set<string>();
     do {
-      const result = await jira(config, token, 'search/jql', { jql, maxResults: 100, fields: ['assignee','summary','issuetype','status','created','description', ...(config.classificationField ? [config.classificationField] : [])], ...(nextPageToken ? { nextPageToken } : {}) });
+      const result = await jira(config, token, 'search/jql', { jql, maxResults: 100, fields: ['assignee','reporter','summary','issuetype','status','created','description', ...(config.classificationField ? [config.classificationField] : [])], ...(nextPageToken ? { nextPageToken } : {}) });
       if (!Array.isArray(result.issues)) throw new JiraError('Resposta inesperada do Jira.', 502);
       for (const issue of result.issues) {
         const f = issue.fields;
-        rdms.push({ key: issue.key, summary: f.summary, assignee: f.assignee?.displayName || 'Não atribuído', type: f.issuetype?.name || '—', status: f.status?.name || '—', classification: fieldText(f[config.classificationField]), created: f.created, description: fieldText(f.description), url: `${config.site}/browse/${encodeURIComponent(issue.key)}` });
+        rdms.push({ key: issue.key, summary: f.summary, assignee: f.assignee?.displayName || 'Não atribuído', reporter: f.reporter?.displayName || '—', type: f.issuetype?.name || '—', status: f.status?.name || '—', classification: fieldText(f[config.classificationField]), created: f.created, description: fieldText(f.description), url: `${config.site}/browse/${encodeURIComponent(issue.key)}` });
       }
       nextPageToken = result.isLast ? undefined : result.nextPageToken;
       if (nextPageToken && seen.has(nextPageToken)) throw new JiraError('Paginação inválida do Jira. Tente novamente.', 502);
